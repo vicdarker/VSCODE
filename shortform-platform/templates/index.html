@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>숏폼 자동 생성</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>숏폼 자동 생성</h1>
+    <p class="subtitle">YouTube 영상 또는 블로그 글을 AI가 자동으로 숏폼으로 만들어줍니다.</p>
+
+    <!-- 소스 타입 탭 -->
+    <div class="source-tabs">
+      <button class="source-tab active" data-tab="youtube">📺 YouTube</button>
+      <button class="source-tab" data-tab="blog">📝 블로그</button>
+    </div>
+
+    <!-- 입력 폼 -->
+    <form id="job-form" class="card">
+
+      <!-- YouTube 입력 -->
+      <div id="tab-youtube" class="tab-panel">
+        <div class="form-group">
+          <label>YouTube URL</label>
+          <input type="url" id="url" placeholder="https://www.youtube.com/watch?v=..." />
+        </div>
+      </div>
+
+      <!-- 블로그 입력 -->
+      <div id="tab-blog" class="tab-panel hidden">
+        <div class="form-group">
+          <label>블로그 URL</label>
+          <input type="url" id="blog_url" placeholder="https://blog.example.com/post/..." />
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>또는 텍스트 직접 입력</label>
+          <textarea id="blog_text" placeholder="블로그 본문을 여기에 붙여넣으세요..." rows="6"></textarea>
+        </div>
+      </div>
+
+      <!-- 공통 옵션 -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>클립 수</label>
+          <select id="clips">
+            <option value="1">1개</option>
+            <option value="2">2개</option>
+            <option value="3" selected>3개</option>
+            <option value="5">5개</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>숏폼 길이</label>
+          <select id="duration">
+            <option value="30">30초</option>
+            <option value="60" selected>60초</option>
+            <option value="90">90초</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>스타일</label>
+          <select id="style">
+            <option value="general">일반</option>
+            <option value="education">교육</option>
+            <option value="entertainment">엔터테인먼트</option>
+            <option value="news">뉴스</option>
+          </select>
+        </div>
+        <div class="form-group youtube-only">
+          <label>자막 스타일</label>
+          <select id="caption_mode">
+            <option value="word_pop">단어 팝업 (TikTok)</option>
+            <option value="line_fade">줄 페이드인</option>
+            <option value="none">자막 없음</option>
+          </select>
+        </div>
+        <div class="form-group checkbox-group youtube-only">
+          <label>
+            <input type="checkbox" id="vertical" checked />
+            9:16 세로 변환
+          </label>
+        </div>
+        <div class="form-group checkbox-group">
+          <label>
+            <input type="checkbox" id="make_thumbnail" checked />
+            썸네일 자동 생성
+          </label>
+        </div>
+      </div>
+      <button type="submit" id="submit-btn">생성 시작</button>
+    </form>
+
+    <!-- 진행 상태 -->
+    <div id="progress-section" class="card hidden">
+      <div class="progress-header">
+        <span id="progress-message">대기 중...</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div id="progress-bar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div id="status-badge" class="badge badge-pending">pending</div>
+    </div>
+
+    <!-- 계정 연결 -->
+    <div id="accounts-section" class="card">
+      <div class="accounts-header">
+        <span>연결된 계정</span>
+        <div class="account-btns">
+          <a id="yt-connect-btn"  class="account-btn" href="/api/publish/youtube/auth">YouTube 연결</a>
+          <a id="tt-connect-btn"  class="account-btn" href="/api/publish/tiktok/auth">TikTok 연결</a>
+        </div>
+      </div>
+      <div class="account-status">
+        <span id="yt-status" class="status-dot"></span> YouTube Shorts &nbsp;|&nbsp;
+        <span id="tt-status" class="status-dot"></span> TikTok
+      </div>
+    </div>
+
+    <!-- 결과 클립 -->
+    <div id="results-section" class="hidden">
+      <h2>생성된 클립</h2>
+      <div id="clips-grid" class="clips-grid"></div>
+    </div>
+
+    <!-- 작업 히스토리 -->
+    <div id="history-section">
+      <h2>최근 작업</h2>
+      <div id="history-list" class="history-list"></div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

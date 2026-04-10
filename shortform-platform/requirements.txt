@@ -1,0 +1,32 @@
+# Core
+anthropic>=0.40.0
+yt-dlp>=2024.1.0
+python-dotenv>=1.0.0
+
+# Web server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+jinja2>=3.1.0
+python-multipart>=0.0.9
+
+# Task queue
+celery>=5.4.0
+redis>=5.0.0
+
+# YouTube 업로드
+google-api-python-client>=2.120.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+
+# TikTok 업로드
+requests>=2.31.0
+
+# 블로그 크롤링
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# TTS (블로그 숏폼용)
+edge-tts>=6.1.9
+
+# Optional: STT (자막 없는 영상용)
+# openai-whisper>=20231117
