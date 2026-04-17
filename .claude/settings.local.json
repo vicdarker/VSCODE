@@ -3,7 +3,30 @@
     "allow": [
       "Bash(python -c ':*)",
       "Bash(pip install:*)",
-      "Bash(python -c \"import bs4, lxml, edge_tts; print\\('OK'\\)\")"
+      "Bash(python -c \"import bs4, lxml, edge_tts; print\\('OK'\\)\")",
+      "Bash(dotnet --version)",
+      "WebSearch",
+      "Bash(netstat -ano)",
+      "Bash(uvx mcp-unity:*)",
+      "Bash(kill %1)",
+      "Bash(claude mcp:*)",
+      "Bash(npm list:*)",
+      "Bash(npx mcp-unity:*)",
+      "Read(//c/unity/1/My project/**)",
+      "Read(//c/Users/vicmy/**)",
+      "Read(//c/Users/vicmy/.config/claude/**)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('C:/Users/vicmy/.claude.json'\\)\\); print\\(json.dumps\\(d.get\\('projects', {}\\).get\\('C:/code', {}\\).get\\('mcpServers', {}\\), indent=2\\)\\)\")",
+      "Bash(python -c \"import json; d=json.load\\(open\\('C:/Users/vicmy/.claude.json', encoding='utf-8'\\)\\); print\\(json.dumps\\(d.get\\('projects', {}\\).get\\('C:/code', {}\\).get\\('mcpServers', {}\\), indent=2\\)\\)\")",
+      "Bash(python -c \"import json; d=json.load\\(open\\('C:/Users/vicmy/.claude.json', encoding='utf-8'\\)\\); print\\(json.dumps\\(d.get\\('projects', {}\\), indent=2\\)\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8080)",
+      "Bash(curl -s http://127.0.0.1:8080/)",
+      "Bash(curl -s http://127.0.0.1:8080/mcp)",
+      "Bash(curl -s -X POST http://127.0.0.1:8080/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}')",
+      "Bash(curl -v -N http://127.0.0.1:8080/mcp -H 'Accept: text/event-stream' -H 'Content-Type: application/json')",
+      "Bash(curl -si http://127.0.0.1:8080/mcp -H \"Accept: text/event-stream\")",
+      "Bash(awk '{print $2}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8080/mcp)",
+      "Bash(python -m json.tool)"
     ]
   }
 }

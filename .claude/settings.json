@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m json.tool echo \"---\")",
+      "Bash(grep -E \"3333|8090|8080|7777\" echo \"---\")",
+      "Bash(tasklist /FI \"PID eq 21888\")",
+      "Bash(tasklist)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(echo \"Exit code: $?\")",
+      "mcp__unityMCP__read_console",
+      "mcp__unityMCP__refresh_unity",
+      "mcp__unityMCP__manage_scene",
+      "mcp__unityMCP__manage_asset",
+      "mcp__unityMCP__manage_gameobject",
+      "mcp__unityMCP__manage_script",
+      "mcp__unityMCP__execute_code",
+      "mcp__unityMCP__manage_editor",
+      "mcp__unityMCP__execute_menu_item"
+    ]
+  }
+}
