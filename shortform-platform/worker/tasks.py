@@ -10,8 +10,9 @@ from api.models import job_store, JobStatus, ClipInfo
 from api.ws_manager import ws_manager
 from src.downloader.youtube import download
 from src.extractor.transcript import load as load_transcript
-from src.selector.claude_selector import select_clips
+from src.selector.claude_selector import select_clips, plan_shorts
 from src.editor.ffmpeg_editor import export_clips
+from src.editor.capcut_exporter import export_script_to_capcut
 
 
 _main_loop: asyncio.AbstractEventLoop | None = None
@@ -53,8 +54,14 @@ def _run_pipeline(job_id: str):
         style          = req["style"]
         make_thumbnail = req.get("make_thumbnail", True)
 
-        if source_type == "blog":
+        output_format = req.get("output_format", "mp4")
+
+        if source_type == "news":
+            edited = _run_news_pipeline(job_id, req, duration, style)
+        elif source_type == "blog":
             edited = _run_blog_pipeline(job_id, req, num_clips, duration, style, make_thumbnail)
+        elif output_format == "capcut":
+            edited = _run_capcut_pipeline(job_id, req, duration, style)
         else:
             edited = _run_youtube_pipeline(job_id, req, num_clips, duration, style, make_thumbnail)
 
@@ -117,6 +124,122 @@ def _run_youtube_pipeline(job_id, req, num_clips, duration, style, make_thumbnai
         segments=segments,
         make_thumbnail=make_thumbnail,
     )
+
+
+def _run_capcut_pipeline(job_id, req, duration, style):
+    """YouTube 영상 → Claude 숏츠 기획 → CapCut JSON"""
+    _progress(job_id, JobStatus.DOWNLOADING, 10, "YouTube 영상 다운로드 중...")
+    result = download(url=req["url"], output_dir="temp")
+
+    _progress(job_id, JobStatus.TRANSCRIBING, 30, "자막 분석 중...")
+    segments = load_transcript(
+        video_path=result.video_path,
+        subtitle_path=result.subtitle_path,
+    )
+    if not segments:
+        raise ValueError("자막을 추출할 수 없습니다.")
+
+    _progress(job_id, JobStatus.SELECTING, 55, "Claude AI가 숏츠 전체 구성을 기획 중...")
+    script = plan_shorts(
+        segments=segments,
+        title=result.title,
+        target_duration=duration,
+        style=style,
+    )
+
+    _progress(job_id, JobStatus.EDITING, 80, "CapCut 프로젝트 파일 생성 중...")
+    project_dir = export_script_to_capcut(
+        video_path=result.video_path,
+        script=script,
+        output_dir="output/capcut",
+    )
+
+    from dataclasses import dataclass
+
+    @dataclass
+    class _FakeResult:
+        output_path: str
+        clip_index: int = 1
+        start: float = 0
+        end: float = 0
+        hook: str = ""
+        hashtags: list = None
+        thumbnail_path: str = None
+
+        def __post_init__(self):
+            if self.hashtags is None:
+                self.hashtags = []
+
+    return [_FakeResult(
+        output_path=project_dir,
+        hook=script.title,
+        hashtags=script.hashtags,
+    )]
+
+
+def _run_news_pipeline(job_id, req, duration, style):
+    """뉴스 텍스트/URL → Claude 기획 → 미디어 수집 → CapCut 프로젝트"""
+    import re as _re
+    from src.selector.news_script_generator import generate_news_script
+    from src.searcher.media_searcher import fetch_media
+    from src.editor.capcut_exporter import export_news_to_capcut
+
+    news_text  = req.get("news_text", "")
+    news_url   = req.get("news_url", "")
+    news_title = req.get("news_title", "")
+
+    if news_url and not news_text:
+        _progress(job_id, JobStatus.DOWNLOADING, 10, "뉴스 페이지 수집 중...")
+        from src.extractor.blog_extractor import extract as extract_blog
+        content = extract_blog(url=news_url, text="")
+        news_text  = content.text
+        news_title = news_title or content.title
+
+    if not news_text:
+        raise ValueError("뉴스 내용을 가져올 수 없습니다.")
+
+    _progress(job_id, JobStatus.SELECTING, 25, "Claude AI가 숏츠 구성을 기획 중...")
+    script = generate_news_script(
+        text=news_text, title=news_title, style=style, target_duration=duration,
+    )
+
+    stem = _re.sub(r"[^\w]", "_", script.title[:20]) or "news"
+    media_dir = f"temp/news_{stem}"
+    total = len(script.segments)
+
+    for i, seg in enumerate(script.segments):
+        pct = 40 + int(i / total * 40)
+        _progress(job_id, JobStatus.EDITING, pct,
+                  f"미디어 수집 중... ({i+1}/{total}) [{seg.media_type}] {seg.search_keyword or '그래픽'}")
+        seg.media_path = fetch_media(
+            media_type=seg.media_type,
+            keyword=seg.search_keyword,
+            output_dir=media_dir,
+            filename=f"seg_{i:02d}",
+            duration=seg.duration,
+            graphic_style=seg.graphic_style,
+        )
+
+    _progress(job_id, JobStatus.EDITING, 85, "CapCut 프로젝트 파일 생성 중...")
+    project_dir = export_news_to_capcut(news_script=script, output_dir="output/capcut")
+
+    from dataclasses import dataclass
+
+    @dataclass
+    class _FakeResult:
+        output_path: str
+        clip_index: int = 1
+        start: float = 0
+        end: float = 0
+        hook: str = ""
+        hashtags: list = None
+        thumbnail_path: str = None
+
+        def __post_init__(self):
+            if self.hashtags is None:
+                self.hashtags = []
+
+    return [_FakeResult(output_path=project_dir, hook=script.title, hashtags=script.hashtags)]
 
 
 def _run_blog_pipeline(job_id, req, num_scripts, duration, style, make_thumbnail):

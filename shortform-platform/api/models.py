@@ -30,12 +30,18 @@ class CreateJobRequest(BaseModel):
     blog_url: str = ""
     blog_text: str = ""
 
+    # News
+    news_url: str = ""
+    news_text: str = ""
+    news_title: str = ""
+
     duration: int = 60           # 숏폼 길이 (초)
     clips: int = 3               # 클립 수 (youtube) / 스크립트 수 (blog)
     style: str = "general"       # 스타일
     vertical: bool = True        # 9:16 변환 (youtube only)
     caption_mode: str = "word_pop"  # "word_pop" | "line_fade" | "none"
     make_thumbnail: bool = True  # 썸네일 자동 생성
+    output_format: str = "mp4"   # "mp4" | "capcut"
 
 
 class ClipInfo(BaseModel):

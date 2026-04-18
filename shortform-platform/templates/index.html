@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>숏폼 자동 생성</title>
-  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="/static/css/style.css?v=3" />
 </head>
 <body>
   <div class="container">
@@ -15,6 +15,7 @@
     <div class="source-tabs">
       <button class="source-tab active" data-tab="youtube">📺 YouTube</button>
       <button class="source-tab" data-tab="blog">📝 블로그</button>
+      <button class="source-tab" data-tab="news">📰 뉴스 숏츠</button>
     </div>
 
     <!-- 입력 폼 -->
@@ -40,9 +41,36 @@
         </div>
       </div>
 
+      <!-- 뉴스 입력 -->
+      <div id="tab-news" class="tab-panel hidden">
+        <div class="form-group">
+          <label>뉴스 URL</label>
+          <input type="url" id="news_url" placeholder="https://news.example.com/article/..." />
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>또는 뉴스 본문 직접 입력</label>
+          <textarea id="news_text" placeholder="뉴스 기사 본문을 여기에 붙여넣으세요..." rows="8"></textarea>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>뉴스 제목 (선택)</label>
+          <input type="text" id="news_title" placeholder="제목을 입력하면 더 정확한 기획이 만들어집니다" />
+        </div>
+        <p class="format-desc" style="margin-top:8px">AI가 뉴스를 분석해 배경 영상/사진/그래픽을 자동 선택하고 CapCut 프로젝트를 생성합니다.</p>
+      </div>
+
+      <!-- 출력 포맷 선택 (뉴스 탭에서는 숨김) -->
+      <div id="format-section" class="form-group" style="margin-top:20px">
+        <label>출력 포맷</label>
+        <div class="format-tabs">
+          <button type="button" class="format-tab active" data-format="mp4">🎬 MP4 바로 렌더</button>
+          <button type="button" class="format-tab" data-format="capcut">✂️ CapCut 기획 프로젝트</button>
+        </div>
+        <p id="format-desc" class="format-desc">영상을 바로 편집·렌더링해 MP4로 저장합니다.</p>
+      </div>
+
       <!-- 공통 옵션 -->
       <div class="form-row">
-        <div class="form-group">
+        <div class="form-group mp4-only">
           <label>클립 수</label>
           <select id="clips">
             <option value="1">1개</option>
@@ -68,7 +96,7 @@
             <option value="news">뉴스</option>
           </select>
         </div>
-        <div class="form-group youtube-only">
+        <div class="form-group youtube-only mp4-only">
           <label>자막 스타일</label>
           <select id="caption_mode">
             <option value="word_pop">단어 팝업 (TikTok)</option>
@@ -76,13 +104,13 @@
             <option value="none">자막 없음</option>
           </select>
         </div>
-        <div class="form-group checkbox-group youtube-only">
+        <div class="form-group checkbox-group youtube-only mp4-only">
           <label>
             <input type="checkbox" id="vertical" checked />
             9:16 세로 변환
           </label>
         </div>
-        <div class="form-group checkbox-group">
+        <div class="form-group checkbox-group mp4-only">
           <label>
             <input type="checkbox" id="make_thumbnail" checked />
             썸네일 자동 생성
@@ -132,6 +160,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=3"></script>
 </body>
 </html>

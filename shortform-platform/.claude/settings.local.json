@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose exec *)",
+      "Bash(docker-compose down *)",
+      "Bash(docker-compose build *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose restart *)",
+      "Bash(docker-compose logs *)",
+      "Bash(node -e \"require\\('fs'\\).readFileSync\\('c:/code/shortform-platform/static/js/app.js', 'utf8'\\)\")",
+      "Read(//c/Users/vicmy/AppData/Local/CapCut/User Data/Projects/com.lveditor.draft//**)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d['materials']['videos'][0]['path']\\)\")",
+      "Bash(python3 -)",
+      "Bash(python -c ' *)",
+      "Read(//c/Users/vicmy/AppData/Local/CapCut Drafts/1218/**)",
+      "Read(//c/Users/vicmy/AppData/Local/CapCut Drafts/0622/**)"
+    ]
+  }
+}

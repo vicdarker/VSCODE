@@ -9,6 +9,7 @@ const API = "";  // 같은 origin
 let currentJobId = null;
 let ws = null;
 let currentTab = "youtube";
+let currentFormat = "mp4";
 
 // --- DOM ---
 const form          = document.getElementById("job-form");
@@ -22,7 +23,7 @@ const resultsSec    = document.getElementById("results-section");
 const clipsGrid     = document.getElementById("clips-grid");
 const historyList   = document.getElementById("history-list");
 
-// --- 탭 전환 ---
+// --- 소스 탭 전환 ---
 document.querySelectorAll(".source-tab").forEach((btn) => {
   btn.addEventListener("click", () => {
     currentTab = btn.dataset.tab;
@@ -31,13 +32,39 @@ document.querySelectorAll(".source-tab").forEach((btn) => {
 
     document.getElementById("tab-youtube").classList.toggle("hidden", currentTab !== "youtube");
     document.getElementById("tab-blog").classList.toggle("hidden", currentTab !== "blog");
+    document.getElementById("tab-news").classList.toggle("hidden", currentTab !== "news");
 
-    // YouTube 전용 옵션 표시/숨김
-    document.querySelectorAll(".youtube-only").forEach(el => {
-      el.style.display = currentTab === "youtube" ? "" : "none";
-    });
+    // 뉴스 탭은 항상 CapCut 출력이므로 포맷 섹션 숨김
+    document.getElementById("format-section").style.display = currentTab === "news" ? "none" : "";
+
+    updateOptionVisibility();
   });
 });
+
+// --- 출력 포맷 탭 전환 ---
+const formatDescs = {
+  mp4:    "영상을 바로 편집·렌더링해 MP4로 저장합니다.",
+  capcut: "AI가 전체 영상을 분석해 숏츠 기획안을 만들고, CapCut에서 바로 열 수 있는 프로젝트 파일을 생성합니다.",
+};
+
+document.querySelectorAll(".format-tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    currentFormat = btn.dataset.format;
+    document.querySelectorAll(".format-tab").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("format-desc").textContent = formatDescs[currentFormat];
+    updateOptionVisibility();
+  });
+});
+
+function updateOptionVisibility() {
+  document.querySelectorAll(".youtube-only").forEach(el => {
+    el.style.display = currentTab === "youtube" ? "" : "none";
+  });
+  document.querySelectorAll(".mp4-only").forEach(el => {
+    el.style.display = currentFormat === "mp4" ? "" : "none";
+  });
+}
 
 // --- 폼 제출 ---
 form.addEventListener("submit", async (e) => {
@@ -51,12 +78,23 @@ form.addEventListener("submit", async (e) => {
     make_thumbnail: document.getElementById("make_thumbnail").checked,
   };
 
+  body.output_format = currentTab === "news" ? "capcut" : currentFormat;
+
   if (currentTab === "youtube") {
     const url = document.getElementById("url").value.trim();
     if (!url) { alert("YouTube URL을 입력하세요."); return; }
-    body.url          = url;
-    body.vertical     = document.getElementById("vertical").checked;
-    body.caption_mode = document.getElementById("caption_mode").value;
+    body.url = url;
+    if (currentFormat === "mp4") {
+      body.vertical     = document.getElementById("vertical").checked;
+      body.caption_mode = document.getElementById("caption_mode").value;
+    }
+  } else if (currentTab === "news") {
+    const newsUrl  = document.getElementById("news_url").value.trim();
+    const newsText = document.getElementById("news_text").value.trim();
+    if (!newsUrl && !newsText) { alert("뉴스 URL 또는 본문을 입력하세요."); return; }
+    body.news_url   = newsUrl;
+    body.news_text  = newsText;
+    body.news_title = document.getElementById("news_title").value.trim();
   } else {
     const blogUrl  = document.getElementById("blog_url").value.trim();
     const blogText = document.getElementById("blog_text").value.trim();
@@ -153,8 +191,32 @@ function renderClips(clips, jobId) {
 
   clips.forEach((clip) => {
     const card = document.createElement("div");
-    card.className = "clip-card";
 
+    // CapCut 프로젝트 결과 (video_url 없음)
+    if (!clip.video_url) {
+      card.className = "capcut-card";
+      const tags = clip.hashtags.map(t => `<span class="clip-tag">${t}</span>`).join("");
+      const folderName = clip.output_path.split("/").pop().split("\\").pop();
+      const planUrl = `/output/capcut/${folderName}/plan.txt`;
+
+      card.innerHTML = `
+        <div class="capcut-header">✂️ CapCut 프로젝트 생성 완료</div>
+        <div class="capcut-title">${clip.hook}</div>
+        <div class="clip-tags" style="margin:10px 0">${tags}</div>
+        <div class="capcut-path">📁 ${clip.output_path}</div>
+        <div class="capcut-actions">
+          <a class="clip-download" href="${planUrl}" target="_blank">기획서 보기</a>
+        </div>
+        <div class="capcut-guide">
+          CapCut PC → <b>초안 폴더</b>에 위 폴더를 복사하면 프로젝트가 나타납니다.
+        </div>
+      `;
+      clipsGrid.appendChild(card);
+      return;
+    }
+
+    // MP4 결과
+    card.className = "clip-card";
     const duration = (clip.end - clip.start).toFixed(0);
     const tags = clip.hashtags.map(t => `<span class="clip-tag">${t}</span>`).join("");
 
@@ -176,7 +238,6 @@ function renderClips(clips, jobId) {
       </div>
     `;
 
-    // 업로드 버튼 이벤트
     if (jobId) {
       card.querySelector(`#publish-btn-${clip.index}`).addEventListener("click", () => {
         const platforms = [];
@@ -212,10 +273,13 @@ async function loadHistory() {
     jobs.slice(0, 10).forEach((job) => {
       const item = document.createElement("div");
       item.className = "history-item";
-      const label = job.request?.url || job.request?.blog_url
+      const label = job.request?.url || job.request?.news_url || job.request?.blog_url
+        || (job.request?.news_title ? job.request.news_title : null)
+        || (job.request?.news_text ? job.request.news_text.slice(0, 60) + "…" : null)
         || (job.request?.blog_text ? job.request.blog_text.slice(0, 60) + "…" : null)
         || job.job_id;
-      const srcIcon = job.request?.source_type === "blog" ? "📝 " : "📺 ";
+      const srcIcon = job.request?.source_type === "blog" ? "📝 "
+                    : job.request?.source_type === "news" ? "📰 " : "📺 ";
       item.innerHTML = `
         <span class="history-url">${srcIcon}${label}</span>
         <span class="history-right">

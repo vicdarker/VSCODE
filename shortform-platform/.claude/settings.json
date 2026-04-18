@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Read(//c/Users/vicmy/Desktop/**)",
+      "Bash(ffprobe -v quiet -print_format json -show_streams -show_format \"C:/Users/vicmy/Desktop/이란이_해협_열자마자_벌어진_일___주식_유가_동시_폭.mp4\")",
+      "Bash(ffmpeg -i \"C:/Users/vicmy/Desktop/이란이_해협_열자마자_벌어진_일___주식_유가_동시_폭.mp4\" -vf \"fps=1/8,scale=540:960\" -frames:v 6 \"C:/Users/vicmy/Desktop/frame_%02d.jpg\" -y)",
+      "Bash(docker start *)",
+      "Bash(docker compose *)",
+      "Bash(sort -k6,7)",
+      "Bash(xargs grep *)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(xargs ls *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python c:/tmp/fix_capcut_meta.py)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\vicmy\\Desktop",
+      "c:\\tmp"
+    ]
+  }
+}

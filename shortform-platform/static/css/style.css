@@ -255,5 +255,75 @@ button[type="submit"]:disabled { opacity: 0.4; cursor: not-allowed; }
 .publish-result { font-size: 0.8rem; color: #6bcb77; margin-top: 6px; }
 .publish-result a { color: #4d96ff; }
 
+/* Format tabs */
+.format-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.format-tab {
+  padding: 9px 20px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #888;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.format-tab.active {
+  background: #1a2d1a;
+  border-color: #6bcb77;
+  color: #6bcb77;
+}
+.format-tab:hover:not(.active) { border-color: #444; color: #ccc; }
+.format-desc {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* CapCut card */
+.capcut-card {
+  background: #1a1a1a;
+  border: 1px solid #2a4a2a;
+  border-radius: 12px;
+  padding: 20px;
+  grid-column: 1 / -1;
+}
+.capcut-header {
+  font-size: 0.8rem;
+  color: #6bcb77;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+.capcut-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e0e0e0;
+  margin-bottom: 4px;
+}
+.capcut-path {
+  font-size: 0.78rem;
+  color: #555;
+  font-family: monospace;
+  background: #111;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 12px 0;
+  word-break: break-all;
+}
+.capcut-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+.capcut-guide {
+  font-size: 0.82rem;
+  color: #666;
+  padding-top: 12px;
+  border-top: 1px solid #2a2a2a;
+}
+.capcut-guide b { color: #aaa; }
+
 /* Utility */
 .hidden { display: none !important; }
