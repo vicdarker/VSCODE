@@ -1,0 +1,42 @@
+{
+  "canvas_config": {
+    "height": 1920,
+    "width": 1080,
+    "ratio": "9:16"
+  },
+  "materials": {
+    "audios": [],
+    "transitions": [],
+    "texts": [],
+    "videos": [
+      {
+        "id": "31FF1410-6BD4-42CB-A9DB-D2A2CA496BD0",
+        "path": "C:/code/shortform-platform/temp/sample_video.mp4",
+        "type": "video",
+        "duration": 5000000, 
+        "material_name": "sample_video.mp4"
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "TRACK-001",
+      "type": "video",
+      "flag": 0,
+      "segments": [
+        {
+          "id": "SEGMENT-001",
+          "material_id": "31FF1410-6BD4-42CB-A9DB-D2A2CA496BD0",
+          "target_timerange": {
+            "duration": 5000000,
+            "start": 0
+          },
+          "source_timerange": {
+            "duration": 5000000,
+            "start": 0
+          }
+        }
+      ]
+    }
+  ]
+}
