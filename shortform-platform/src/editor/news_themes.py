@@ -53,6 +53,24 @@ LIGHT_GRAY = (235, 235, 235, 255)
 
 
 THEMES = {
+    # Remotion(React) 기반 프리미엄 — 애니메이션 제목/스프링 팝업/슬라이드 자막
+    "remotion_samprotv": {
+        "display_name": "프리미엄 (Remotion) - 삼프로tv 스타일 + 애니메이션",
+        "layout": "letterbox",
+        "canvas": (1080, 1920),
+        "fixed_title": True,
+        "engine": "remotion",      # ★ 이 플래그로 Remotion 렌더러 선택
+        "remotion_theme_id": "samprotv",
+    },
+    "remotion_youtuber": {
+        "display_name": "프리미엄 (Remotion) - 유튜버 스타일 + 애니메이션",
+        "layout": "letterbox",
+        "canvas": (1080, 1920),
+        "fixed_title": True,
+        "engine": "remotion",
+        "remotion_theme_id": "youtuber",
+    },
+
     # 삼프로tv 스타일: 상단 검정+굵은 흰 제목, 중앙 영상, 하단 검정+노란 자막
     "samprotv": {
         "display_name": "삼프로tv 스타일",
@@ -422,7 +440,7 @@ def list_themes() -> list[dict]:
     return [{"id": k, "name": v["display_name"]} for k, v in THEMES.items()]
 
 
-# 프리셋 카드에서 숨길 테마 (fullscreen_overlay는 디버그용)
+# Remotion 테마와 fullscreen_overlay 등은 프리셋 카드에선 숨김
 _PRESET_EXCLUDE = {"fullscreen_overlay"}
 
 
@@ -475,10 +493,10 @@ def get_preset_ui_config(preset_id: str) -> dict:
 
 
 def list_presets() -> list[dict]:
-    """UI 카드 그리드용."""
+    """UI 카드 그리드용. Remotion/fullscreen은 숨김. vibe 태그는 클라이언트 2축 필터용."""
     out = []
     for k, v in THEMES.items():
-        if k in _PRESET_EXCLUDE:
+        if k in _PRESET_EXCLUDE or v.get("engine") == "remotion":
             continue
         out.append({
             "id": k,

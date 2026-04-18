@@ -162,7 +162,13 @@ async def preview_layout(payload: dict = Body(...)):
     caption = payload.get("caption", "몇 척만 통과했던거야")
     highlight = payload.get("highlight_stat", "")
 
-    theme = apply_overrides(get_theme(theme_id), overrides)
+    # Remotion 엔진 테마는 PIL 미리보기 불가 → 동일 스타일의 PIL 테마로 대체
+    base = get_theme(theme_id)
+    if base.get("engine") == "remotion":
+        theme_id = base.get("remotion_theme_id") or "viral_pill"
+        base = get_theme(theme_id)
+
+    theme = apply_overrides(base, overrides)
 
     # 오버레이 생성
     tmp = "/tmp/preview_overlay.png"

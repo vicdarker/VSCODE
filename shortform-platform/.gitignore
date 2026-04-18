@@ -7,5 +7,9 @@ __pycache__/
 .venv/
 venv/
 
+# Remotion: node_modules + 렌더 캐시 (수백MB, 필요 시 `npm install`로 재생성)
+remotion/node_modules/
+remotion/output/
+
 # 프리셋 썸네일 (API 기동 시 자동 재생성)
 static/previews/
