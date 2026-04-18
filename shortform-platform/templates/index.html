@@ -55,7 +55,13 @@
           <label>뉴스 제목 (선택)</label>
           <input type="text" id="news_title" placeholder="제목을 입력하면 더 정확한 기획이 만들어집니다" />
         </div>
-        <p class="format-desc" style="margin-top:8px">AI가 뉴스를 분석해 배경 영상/사진/그래픽을 자동 선택하고 CapCut 프로젝트를 생성합니다.</p>
+        <div class="form-group" style="margin-top:12px">
+          <label>레이아웃 테마</label>
+          <select id="theme_id">
+            <option value="samprotv">삼프로tv 스타일 (상단 제목/중앙 영상/하단 노란 자막)</option>
+          </select>
+        </div>
+        <p class="format-desc" style="margin-top:8px">AI가 뉴스를 분석해 배경 영상/사진/그래픽을 자동 선택하고 MP4 + CapCut 프로젝트를 생성합니다.</p>
       </div>
 
       <!-- 출력 포맷 선택 (뉴스 탭에서는 숨김) -->

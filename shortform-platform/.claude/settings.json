@@ -12,7 +12,14 @@
       "Bash(awk '{print $5, $9}')",
       "Bash(xargs ls *)",
       "Bash(python3 -c ' *)",
-      "Bash(python c:/tmp/fix_capcut_meta.py)"
+      "Bash(python c:/tmp/fix_capcut_meta.py)",
+      "WebFetch(domain:youtube.com)",
+      "Bash(python c:/tmp/check_and_fix.py)",
+      "Bash(python c:/tmp/check_text.py)",
+      "Bash(curl -s http://localhost:8000/api/themes)",
+      "Bash(grep -E \"seg_.*\\\\.\\(mp4|jpg\\)$\")",
+      "Bash(curl -s -H \"Authorization: EC7iH6DFkSpLX9l2wpeBi1WRMZn4WfdD8yHc8moIQV63iKGMofaswCn7\" \"https://api.pexels.com/v1/search?query=stock&per_page=1\" -w \"\\\\nHTTP: %{http_code}\\\\n\")",
+      "Read(//c/Users/vicmy/AppData/Local/Temp/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\vicmy\\Desktop",

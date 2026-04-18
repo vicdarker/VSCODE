@@ -7,11 +7,34 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
 
 from src.selector.claude_selector import ShortsScript, SelectedClip
+
+# 뉴스 숏츠 레이아웃: 상단 630px 검정 + 중앙 810px 영상(4:3) + 하단 480px 검정
+_NEWS_TOP_H = 630
+_NEWS_VID_H = 810
+
+
+def _letterbox_news(src_path: str, dst_path: str) -> str:
+    """영상/사진(1080x810)을 상단+하단 검정 레터박스 포함 1080x1920으로 합성"""
+    # 입력이 어떤 크기든 1080x810 중앙 영역에 cover 방식으로 맞추고 black 패딩
+    vf = (
+        f"scale=1080:{_NEWS_VID_H}:force_original_aspect_ratio=increase,"
+        f"crop=1080:{_NEWS_VID_H},"
+        f"pad=1080:1920:0:{_NEWS_TOP_H}:black,setsar=1"
+    )
+    subprocess.run([
+        "ffmpeg", "-y", "-i", src_path,
+        "-vf", vf,
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-pix_fmt", "yuv420p", "-an",
+        dst_path,
+    ], capture_output=True, check=True)
+    return dst_path
 
 
 def _uid() -> str:
@@ -285,36 +308,53 @@ def _make_video_segment(seg_id, mat_id, src_start, src_dur, tgt_start, audio_fad
 
 
 def _make_news_title_material(mat_id: str, text: str) -> dict:
-    """뉴스 숏츠 상단 타이틀 — 크고 굵은 글씨"""
+    """뉴스 숏츠 상단 타이틀 — 검정 배경 위 굵은 흰 글씨 (삼프로tv 스타일)"""
     mat = _make_text_material(mat_id, text)
     mat.update({
-        "font_size": 17.0,
-        "text_size": 26,
-        "bold_width": 0.7,
+        "font_size": 7.5,
+        "text_size": 11,
+        "bold_width": 0.6,
         "alignment": 1,
-        "line_max_width": 0.85,
+        "line_max_width": 0.80,
         "text_color": "#FFFFFFFF",
-        "border_width": 0.07,
-        "border_color": "#000000",
-        "shadow_distance": 14.0,
-        "shadow_alpha": 0.92,
-        "line_spacing": 0.08,
+        "has_shadow": False,
+        "border_width": 0.0,
+        "line_spacing": 0.1,
+    })
+    return mat
+
+
+def _make_news_source_material(mat_id: str, text: str = "출처:삼프로tv") -> dict:
+    """상단 출처 표기 — 아주 작은 흰 글씨"""
+    mat = _make_text_material(mat_id, text)
+    mat.update({
+        "font_size": 3.5,
+        "text_size": 5,
+        "alignment": 1,
+        "line_max_width": 0.4,
+        "text_color": "#FFFFFFFF",
+        "has_shadow": False,
+        "border_width": 0.0,
     })
     return mat
 
 
 def _make_news_caption_material(mat_id: str, text: str) -> dict:
-    """뉴스 숏츠 하단 자막 — 일반 크기"""
+    """뉴스 숏츠 하단 자막 — 노란색 굵은 글씨"""
     mat = _make_text_material(mat_id, text)
     mat.update({
-        "font_size": 8.5,
-        "text_size": 13,
+        "font_size": 5.5,
+        "text_size": 9,
+        "bold_width": 0.5,
         "alignment": 1,
-        "line_max_width": 0.90,
-        "text_color": "#FFFFFFFF",
+        "line_max_width": 0.88,
+        "text_color": "#FFF000",
+        "text_alpha": 1.0,
+        "use_effect_default_color": False,
         "border_width": 0.08,
-        "shadow_distance": 8.0,
-        "shadow_alpha": 0.85,
+        "border_color": "#000000",
+        "shadow_distance": 4.0,
+        "shadow_alpha": 0.9,
     })
     return mat
 
@@ -657,13 +697,21 @@ def export_news_to_capcut(news_script, output_dir: str = "output/capcut") -> str
         project_dir = Path(output_dir) / project_name
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    # 세그먼트별 비디오 재료 생성
+    # 세그먼트별 비디오 재료 생성 (삼프로tv 스타일 레터박스 합성)
     video_materials, mat_ids = [], []
     for seg in news_script.segments:
         mat_id = _uid()
         mat_ids.append(mat_id)
         dur_us = int(seg.duration * 1_000_000)
-        abs_path = _host_path(os.path.abspath(seg.media_path))
+        src = os.path.abspath(seg.media_path)
+        lb = str(Path(src).with_name(Path(src).stem + "_lb.mp4"))
+        try:
+            _letterbox_news(src, lb)
+            final_src = lb
+        except Exception as e:
+            print(f"  레터박스 실패 ({seg.media_path}): {e}")
+            final_src = src
+        abs_path = _host_path(final_src)
         video_materials.append(_make_video_material(mat_id, abs_path, dur_us))
 
     # 오디오 페이드
@@ -676,7 +724,7 @@ def export_news_to_capcut(news_script, output_dir: str = "output/capcut") -> str
             "fade_in_duration": 300_000, "fade_out_duration": 300_000,
         })
 
-    # 타임라인 세그먼트 + 텍스트 재료 (타이틀/캡션 분리)
+    # 타임라인 세그먼트 + 텍스트 재료 (타이틀/자막 분리)
     video_segments = []
     title_materials, title_segments = [], []
     caption_materials, caption_segments = [], []
@@ -688,19 +736,19 @@ def export_news_to_capcut(news_script, output_dir: str = "output/capcut") -> str
             src_start=0, src_dur=dur_us, tgt_start=timeline_pos,
             audio_fade_id=audio_fade_ids[idx],
         ))
-        # 상단 타이틀 (text_content)
+        # 상단 타이틀 (text_content) — 검정 영역 중앙 (4:3 레이아웃 기준)
         if seg.text_content:
             t_id = _uid()
             title_materials.append(_make_news_title_material(t_id, seg.text_content))
             title_segments.append(_make_positioned_text_segment(
-                _uid(), t_id, dur_us, timeline_pos, y_pos=0.55,
+                _uid(), t_id, dur_us, timeline_pos, y_pos=0.67,
             ))
-        # 하단 자막 (caption)
+        # 하단 자막 (caption) — 검정 영역 (4:3 레이아웃 기준)
         if seg.caption:
             c_id = _uid()
             caption_materials.append(_make_news_caption_material(c_id, seg.caption))
             caption_segments.append(_make_positioned_text_segment(
-                _uid(), c_id, dur_us, timeline_pos, y_pos=-0.50,
+                _uid(), c_id, dur_us, timeline_pos, y_pos=-0.75,
             ))
         timeline_pos += dur_us
 
@@ -768,8 +816,17 @@ def _build_news_plan_txt(script) -> str:
         "── 구성 ──",
     ]
     for i, seg in enumerate(script.segments, 1):
-        lines.append(f"[{i}] {seg.media_type.upper()} | {seg.duration:.1f}s | 키워드: {seg.search_keyword or '-'}")
+        role = getattr(seg, "role", "body").upper()
+        pivot = getattr(seg, "pivot_phrase", "") or ""
+        emph = getattr(seg, "emphasis_words", []) or []
+        header = f"[{i}] {role} | {seg.media_type.upper()} | {seg.duration:.1f}s"
+        if pivot:
+            header += f" | pivot: '{pivot}'"
+        header += f" | 키워드: {seg.search_keyword or '-'}"
+        lines.append(header)
         lines.append(f"     텍스트: {seg.text_content}")
+        if emph:
+            lines.append(f"     강조: {', '.join(emph)}")
         lines.append(f"     자막: {seg.caption}")
     return "\n".join(lines)
 

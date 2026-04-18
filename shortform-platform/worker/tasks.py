@@ -178,15 +178,17 @@ def _run_capcut_pipeline(job_id, req, duration, style):
 
 
 def _run_news_pipeline(job_id, req, duration, style):
-    """뉴스 텍스트/URL → Claude 기획 → 미디어 수집 → CapCut 프로젝트"""
+    """뉴스 텍스트/URL → Claude 기획 → 미디어 수집 → MP4 렌더링 + CapCut 프로젝트"""
     import re as _re
     from src.selector.news_script_generator import generate_news_script
     from src.searcher.media_searcher import fetch_media
     from src.editor.capcut_exporter import export_news_to_capcut
+    from src.editor.news_direct_renderer import render_news_shorts
 
     news_text  = req.get("news_text", "")
     news_url   = req.get("news_url", "")
     news_title = req.get("news_title", "")
+    theme_id   = req.get("theme_id", "samprotv")
 
     if news_url and not news_text:
         _progress(job_id, JobStatus.DOWNLOADING, 10, "뉴스 페이지 수집 중...")
@@ -223,6 +225,14 @@ def _run_news_pipeline(job_id, req, duration, style):
     _progress(job_id, JobStatus.EDITING, 85, "CapCut 프로젝트 파일 생성 중...")
     project_dir = export_news_to_capcut(news_script=script, output_dir="output/capcut")
 
+    _progress(job_id, JobStatus.EDITING, 92, f"MP4 렌더링 중 (테마: {theme_id})...")
+    mp4_path = f"output/news/{stem}.mp4"
+    try:
+        render_news_shorts(news_script=script, output_path=mp4_path, theme_id=theme_id)
+    except Exception as e:
+        print(f"  MP4 렌더링 실패 (무시): {e}")
+        mp4_path = project_dir  # fallback
+
     from dataclasses import dataclass
 
     @dataclass
@@ -239,7 +249,7 @@ def _run_news_pipeline(job_id, req, duration, style):
             if self.hashtags is None:
                 self.hashtags = []
 
-    return [_FakeResult(output_path=project_dir, hook=script.title, hashtags=script.hashtags)]
+    return [_FakeResult(output_path=mp4_path, hook=script.title, hashtags=script.hashtags)]
 
 
 def _run_blog_pipeline(job_id, req, num_scripts, duration, style, make_thumbnail):

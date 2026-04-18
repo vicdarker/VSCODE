@@ -5,6 +5,13 @@
 
 const API = "";  // 같은 origin
 
+// 테마 목록 동적 로드
+fetch("/api/themes").then(r => r.json()).then(data => {
+  const sel = document.getElementById("theme_id");
+  if (!sel || !data.themes) return;
+  sel.innerHTML = data.themes.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+}).catch(() => {});
+
 // --- 상태 ---
 let currentJobId = null;
 let ws = null;
@@ -95,6 +102,8 @@ form.addEventListener("submit", async (e) => {
     body.news_url   = newsUrl;
     body.news_text  = newsText;
     body.news_title = document.getElementById("news_title").value.trim();
+    const themeSel  = document.getElementById("theme_id");
+    if (themeSel) body.theme_id = themeSel.value;
   } else {
     const blogUrl  = document.getElementById("blog_url").value.trim();
     const blogText = document.getElementById("blog_text").value.trim();

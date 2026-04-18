@@ -62,6 +62,13 @@ async def index(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
 
 
+@app.get("/api/themes")
+async def list_news_themes():
+    """뉴스 숏츠 테마 목록"""
+    from src.editor.news_themes import list_themes
+    return {"themes": list_themes()}
+
+
 @app.websocket("/ws/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
     await ws_manager.connect(websocket, job_id)
