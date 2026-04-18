@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>숏폼 자동 생성</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=3" />
+  <link rel="stylesheet" href="/static/css/style.css?v=5" />
 </head>
 <body>
   <div class="container">
@@ -13,16 +13,16 @@
 
     <!-- 소스 타입 탭 -->
     <div class="source-tabs">
-      <button class="source-tab active" data-tab="youtube">📺 YouTube</button>
+      <button class="source-tab active" data-tab="news">📰 뉴스 숏츠</button>
+      <button class="source-tab" data-tab="youtube">📺 YouTube</button>
       <button class="source-tab" data-tab="blog">📝 블로그</button>
-      <button class="source-tab" data-tab="news">📰 뉴스 숏츠</button>
     </div>
 
     <!-- 입력 폼 -->
     <form id="job-form" class="card">
 
       <!-- YouTube 입력 -->
-      <div id="tab-youtube" class="tab-panel">
+      <div id="tab-youtube" class="tab-panel hidden">
         <div class="form-group">
           <label>YouTube URL</label>
           <input type="url" id="url" placeholder="https://www.youtube.com/watch?v=..." />
@@ -42,36 +42,183 @@
       </div>
 
       <!-- 뉴스 입력 -->
-      <div id="tab-news" class="tab-panel hidden">
-        <div class="form-group">
-          <label>뉴스 URL</label>
-          <input type="url" id="news_url" placeholder="https://news.example.com/article/..." />
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label>또는 뉴스 본문 직접 입력</label>
-          <textarea id="news_text" placeholder="뉴스 기사 본문을 여기에 붙여넣으세요..." rows="8"></textarea>
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label>뉴스 제목 (선택)</label>
-          <input type="text" id="news_title" placeholder="제목을 입력하면 더 정확한 기획이 만들어집니다" />
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label>레이아웃 테마</label>
-          <select id="theme_id">
-            <option value="samprotv">삼프로tv 스타일 (상단 제목/중앙 영상/하단 노란 자막)</option>
-          </select>
-        </div>
-        <p class="format-desc" style="margin-top:8px">AI가 뉴스를 분석해 배경 영상/사진/그래픽을 자동 선택하고 MP4 + CapCut 프로젝트를 생성합니다.</p>
-      </div>
+      <div id="tab-news" class="tab-panel">
+        <div class="news-layout">
 
-      <!-- 출력 포맷 선택 (뉴스 탭에서는 숨김) -->
-      <div id="format-section" class="form-group" style="margin-top:20px">
-        <label>출력 포맷</label>
-        <div class="format-tabs">
-          <button type="button" class="format-tab active" data-format="mp4">🎬 MP4 바로 렌더</button>
-          <button type="button" class="format-tab" data-format="capcut">✂️ CapCut 기획 프로젝트</button>
+          <!-- ───── 좌: 3단계 폼 ───── -->
+          <div class="news-form-col">
+
+            <!-- ① 뉴스 원문 -->
+            <section class="step-card">
+              <h4 class="step-title">① 뉴스 원문</h4>
+              <div class="form-group">
+                <label>뉴스 URL</label>
+                <input type="url" id="news_url" placeholder="https://news.example.com/article/..." />
+              </div>
+              <div class="form-group" style="margin-top:10px">
+                <label>또는 본문 직접 입력</label>
+                <textarea id="news_text" placeholder="뉴스 기사 본문을 여기에 붙여넣으세요..." rows="6"></textarea>
+              </div>
+              <div class="form-group" style="margin-top:10px">
+                <label>뉴스 제목 (선택)</label>
+                <input type="text" id="news_title" placeholder="제목을 입력하면 더 정확한 기획이 만들어집니다" />
+              </div>
+            </section>
+
+            <!-- ② 프리셋 선택 -->
+            <section class="step-card">
+              <div class="step-header">
+                <h4 class="step-title" style="margin:0">② 프리셋 선택</h4>
+                <button type="button" id="btn-save-preset" class="inline-btn">💾 현재 설정을 내 프리셋으로</button>
+              </div>
+              <div id="preset-grid"
+                   style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;max-height:380px;overflow-y:auto;padding:6px;background:#0f0f14;border:1px solid #2a2a32;border-radius:8px;margin-top:8px"></div>
+              <input type="hidden" id="theme_id" value="viral_pill" />
+              <div class="vibe-quickbar">
+                <span class="vibe-label">빠른 조정</span>
+                <label>분위기
+                  <select id="vibe-mood">
+                    <option value="">—</option>
+                    <option value="shock">충격</option>
+                    <option value="mourning">추모·슬픔</option>
+                    <option value="economy">경제</option>
+                    <option value="celebrity">연예·셀럽</option>
+                    <option value="social">사회·정치</option>
+                    <option value="positive">긍정</option>
+                    <option value="neutral">중립</option>
+                  </select>
+                </label>
+                <label>톤
+                  <select id="vibe-tone">
+                    <option value="">—</option>
+                    <option value="formal">정통</option>
+                    <option value="casual">캐주얼</option>
+                    <option value="bold">굵직</option>
+                    <option value="dramatic">극적</option>
+                    <option value="minimal">미니멀</option>
+                  </select>
+                </label>
+                <button type="button" id="btn-apply-vibe" class="inline-btn">적용</button>
+              </div>
+            </section>
+
+            <!-- ③ 미세 조정 (접힘) -->
+            <details class="step-card customize-panel">
+              <summary class="step-title step-summary">③ 미세 조정 <span class="step-hint">(선택)</span></summary>
+              <div class="customize-body-single" style="margin-top:12px">
+                <fieldset class="cus-fieldset">
+                  <legend>레이아웃 비율 (합=1920)</legend>
+                  <div class="form-row">
+                    <div class="form-group"><label>상단 <span id="v-top">290</span>px</label>
+                      <input type="range" id="lay-top" min="0" max="700" value="290"></div>
+                    <div class="form-group"><label>영상 <span id="v-vid">1280</span>px</label>
+                      <input type="range" id="lay-vid" min="700" max="1700" value="1280"></div>
+                    <div class="form-group"><label>하단 <span id="v-bot">350</span>px</label>
+                      <input type="range" id="lay-bot" min="0" max="700" value="350"></div>
+                  </div>
+                </fieldset>
+
+                <fieldset class="cus-fieldset">
+                  <legend>자막</legend>
+                  <div class="form-row">
+                    <div class="form-group"><label>위치</label>
+                      <select id="cap-area">
+                        <option value="bottom">하단 블랙 영역</option>
+                        <option value="video_bottom_overlay" selected>영상 위 오버레이</option>
+                        <option value="video_bottom_pill">영상 위 알약박스</option>
+                      </select></div>
+                    <div class="form-group"><label>크기 <span id="v-cap-size">72</span>px</label>
+                      <input type="range" id="cap-size" min="40" max="130" value="72"></div>
+                    <div class="form-group"><label>글씨체</label>
+                      <select id="cap-font"></select></div>
+                  </div>
+                  <div class="form-row" style="margin-top:8px">
+                    <div class="form-group"><label>색상</label>
+                      <input type="color" id="cap-color" value="#fff000" style="height:38px;width:100%"></div>
+                    <div class="form-group"><label>외곽선 <span id="v-cap-stroke">8</span>px</label>
+                      <input type="range" id="cap-stroke" min="0" max="16" value="8"></div>
+                  </div>
+                </fieldset>
+
+                <fieldset class="cus-fieldset">
+                  <legend>타이틀</legend>
+                  <div class="form-row">
+                    <div class="form-group"><label>크기 <span id="v-ttl-size">92</span>px</label>
+                      <input type="range" id="ttl-size" min="50" max="140" value="92"></div>
+                    <div class="form-group"><label>글씨체</label>
+                      <select id="ttl-font"></select></div>
+                    <div class="form-group"><label>색상</label>
+                      <input type="color" id="ttl-color" value="#ffffff" style="height:38px;width:100%"></div>
+                  </div>
+                  <div class="form-row" style="margin-top:8px">
+                    <div class="form-group"><label><input type="checkbox" id="ttl-accent" checked> 마지막 줄 강조</label></div>
+                    <div class="form-group"><label>강조 색상</label>
+                      <input type="color" id="ttl-accent-color" value="#fff000" style="height:38px;width:100%"></div>
+                  </div>
+                </fieldset>
+
+                <fieldset class="cus-fieldset">
+                  <legend>하단 브랜드</legend>
+                  <div class="form-row">
+                    <div class="form-group" style="flex:2"><label>문구</label>
+                      <input type="text" id="brand-text" value="구독 + 좋아요"></div>
+                    <div class="form-group"><label>크기 <span id="v-brand-size">86</span>px</label>
+                      <input type="range" id="brand-size" min="40" max="120" value="86"></div>
+                  </div>
+                </fieldset>
+
+                <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+                  <button type="button" id="reset-customize" class="inline-btn">기본값으로</button>
+                  <span id="customize-status" style="color:#888;font-size:12px"></span>
+                </div>
+              </div>
+            </details>
+
+            <!-- ④ 렌더 옵션 -->
+            <section class="step-card">
+              <h4 class="step-title">④ 렌더 옵션</h4>
+              <div class="opt-checks">
+                <label><input type="checkbox" id="enable_tts" checked /> TTS 내레이션</label>
+                <label><input type="checkbox" id="enable_bgm" checked /> BGM</label>
+                <label><input type="checkbox" id="enable_transitions" checked /> 크로스페이드</label>
+                <label><input type="checkbox" id="enable_ticker" /> 하단 티커</label>
+                <label><input type="checkbox" id="enable_highlight_stat" /> 수치 팝업</label>
+              </div>
+              <div class="form-row" style="margin-top:10px">
+                <div class="form-group">
+                  <label>TTS 엔진</label>
+                  <select id="tts_provider">
+                    <option value="edge" selected>Edge (무료·무제한)</option>
+                    <option value="openai">OpenAI (유료·저렴)</option>
+                    <option value="gemini">Gemini (하루 15회 무료)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>음성 (Edge 전용)</label>
+                  <select id="tts_voice">
+                    <option value="ko-KR-SunHiNeural" selected>여 · 뉴스앵커 (SunHi)</option>
+                    <option value="ko-KR-InJoonNeural">남 · 차분 (InJoon)</option>
+                    <option value="ko-KR-HyunsuMultilingualNeural">남 · 캐주얼 (Hyunsu)</option>
+                  </select>
+                </div>
+              </div>
+              <p class="format-desc" style="margin-top:8px">AI가 뉴스를 분석해 배경 영상/사진을 자동 수집하고 MP4로 렌더링합니다.</p>
+            </section>
+
+          </div>
+
+          <!-- ───── 우: sticky 미리보기 ───── -->
+          <aside class="news-preview-col">
+            <div class="preview-sticky">
+              <div class="preview-head">
+                <span style="font-weight:600">미리보기</span>
+                <span id="customize-status-mirror" style="color:#888;font-size:11px"></span>
+              </div>
+              <img id="layout-preview" alt="preview" />
+              <div class="preview-hint">샘플 텍스트 기반 — 실제 영상은 뉴스 내용에 따라 달라집니다</div>
+            </div>
+          </aside>
         </div>
-        <p id="format-desc" class="format-desc">영상을 바로 편집·렌더링해 MP4로 저장합니다.</p>
       </div>
 
       <!-- 공통 옵션 -->
@@ -79,9 +226,9 @@
         <div class="form-group mp4-only">
           <label>클립 수</label>
           <select id="clips">
-            <option value="1">1개</option>
+            <option value="1" selected>1개</option>
             <option value="2">2개</option>
-            <option value="3" selected>3개</option>
+            <option value="3">3개</option>
             <option value="5">5개</option>
           </select>
         </div>
@@ -166,6 +313,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=3"></script>
+  <script src="/static/js/app.js?v=12"></script>
 </body>
 </html>

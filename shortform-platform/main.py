@@ -14,7 +14,6 @@ from src.downloader.youtube import download
 from src.extractor.transcript import load as load_transcript
 from src.selector.claude_selector import select_clips
 from src.editor.ffmpeg_editor import export_clips
-from src.editor.capcut_exporter import export_to_capcut
 
 
 def main():
@@ -41,10 +40,6 @@ def main():
     parser.add_argument(
         "--output", default="output",
         help="출력 폴더 (기본값: output)"
-    )
-    parser.add_argument(
-        "--capcut", action="store_true",
-        help="영상을 렌더링하지 않고 캡컷(CapCut) 프로젝트 파일로 변환하여 출력합니다."
     )
     parser.add_argument(
         "--temp", default="temp",
@@ -97,25 +92,8 @@ def main():
         print(f"         훅: {clip.hook}")
         print(f"         태그: {' '.join(clip.hashtags)}")
 
-    # Step 4: 편집 혹은 캡컷 프로젝트 저장
-    if args.capcut:
-        print(f"\n[4/4] 캡컷(CapCut PC) 프로젝트 파일 생성 중... ({args.output}/capcut/)")
-        edited = export_to_capcut(
-            video_path=result.video_path,
-            clips=clips,
-            output_dir=os.path.join(args.output, "capcut")
-        )
-        
-        # 완료 요약
-        print(f"\n{'='*50}")
-        print(f"  완료! {len(edited)}개 캡컷 프로젝트 생성됨")
-        print(f"{'='*50}")
-        for path in edited:
-            print(f"  프로젝트 경로: {path}")
-            
-    else:
-        print(f"\n[4/4] 영상 편집 및 저장 중... ({args.output}/)")
-        edited = export_clips(
+    print(f"\n[4/4] 영상 편집 및 저장 중... ({args.output}/)")
+    edited = export_clips(
             video_path=result.video_path,
             clips=clips,
             output_dir=args.output,

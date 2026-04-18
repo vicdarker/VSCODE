@@ -23,7 +23,7 @@ class SelectedClip:
     hashtags: list[str]
 
 
-# ── 새 모델 (CapCut 기획 파이프라인용) ──────────────────────────────────────
+# ── 숏츠 기획 모델 ──
 
 @dataclass
 class ScriptSegment:
@@ -42,7 +42,7 @@ class ShortsScript:
     segments: list[ScriptSegment] # 타임라인 순서대로 조합할 구간들
 
 
-# ── CapCut 기획 파이프라인 ───────────────────────────────────────────────────
+# ── 숏츠 기획 파이프라인 ──
 
 def plan_shorts(
     segments: list[Segment],

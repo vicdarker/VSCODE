@@ -18,15 +18,12 @@ services:
       - PYTHONIOENCODING=utf-8
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
+      - PATH=/usr/local/bin:/usr/bin:/bin
       - HOST_PROJECT_PATH=c:/code/shortform-platform
-      - CAPCUT_DRAFTS_PATH=/capcut_drafts
-      - CAPCUT_META_PATH=/capcut_meta
     volumes:
       - .:/app
       - ./temp:/app/temp
       - ./output:/app/output
-      - "C:/Users/vicmy/AppData/Local/CapCut Drafts:/capcut_drafts"
-      - "C:/Users/vicmy/AppData/Local/CapCut/User Data/Projects/com.lveditor.draft:/capcut_meta"
     depends_on:
       - redis
 
@@ -39,14 +36,11 @@ services:
       - PYTHONIOENCODING=utf-8
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
+      - PATH=/usr/local/bin:/usr/bin:/bin
       - HOST_PROJECT_PATH=c:/code/shortform-platform
-      - CAPCUT_DRAFTS_PATH=/capcut_drafts
-      - CAPCUT_META_PATH=/capcut_meta
     volumes:
       - .:/app
       - ./temp:/app/temp
       - ./output:/app/output
-      - "C:/Users/vicmy/AppData/Local/CapCut Drafts:/capcut_drafts"
-      - "C:/Users/vicmy/AppData/Local/CapCut/User Data/Projects/com.lveditor.draft:/capcut_meta"
     depends_on:
       - redis

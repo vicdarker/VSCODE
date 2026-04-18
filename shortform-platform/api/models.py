@@ -41,7 +41,12 @@ class CreateJobRequest(BaseModel):
     vertical: bool = True        # 9:16 변환 (youtube only)
     caption_mode: str = "word_pop"  # "word_pop" | "line_fade" | "none"
     make_thumbnail: bool = True  # 썸네일 자동 생성
-    output_format: str = "mp4"   # "mp4" | "capcut"
+    output_format: str = "mp4"   # "mp4"
+
+    # 테마 + 사용자 커스터마이징 오버라이드
+    theme_id: str = "viral_pill"
+    theme_overrides: dict | None = None   # {title/caption/bottom_brand/layout ...}
+    enable_highlight_stat: bool = False   # 수치 팝업 (기본 끔 — 영상 가림 방지)
 
 
 class ClipInfo(BaseModel):

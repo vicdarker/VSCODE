@@ -5,17 +5,243 @@
 
 const API = "";  // 같은 origin
 
-// 테마 목록 동적 로드
-fetch("/api/themes").then(r => r.json()).then(data => {
-  const sel = document.getElementById("theme_id");
-  if (!sel || !data.themes) return;
-  sel.innerHTML = data.themes.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
-}).catch(() => {});
+// ─ 프리셋 카드 그리드 ────────────────────────────────────────────
+const PRESET_STORAGE_KEY  = "shortform_selected_preset_v1";
+const MY_PRESETS_KEY      = "shortform_my_presets_v1";
+let  _allPresets          = [];   // [{id,name,description,vibe_moods,vibe_tones,thumbnail_url}, ...]
+
+function getSelectedPreset() {
+  return document.getElementById("theme_id")?.value || "viral_pill";
+}
+
+async function setSelectedPreset(id, opts = {}) {
+  const th = document.getElementById("theme_id");
+  if (th) th.value = id;
+  localStorage.setItem(PRESET_STORAGE_KEY, id);
+  document.querySelectorAll(".preset-card").forEach(c => {
+    c.classList.toggle("selected", c.dataset.id === id);
+  });
+  // 프리셋 기본값을 UI 슬라이더에 주입 (커스터마이징 리셋)
+  // opts.skipReset=true면 스킵 (예: 내 프리셋 snap 적용할 때)
+  if (!opts.skipReset) {
+    try {
+      const r = await fetch(`/api/presets/${encodeURIComponent(id)}/config`);
+      if (r.ok) {
+        const cfg = await r.json();
+        applyPresetConfigToForm(cfg);
+      }
+    } catch (e) { console.warn("preset config load fail", e); }
+    // 내 프리셋에서 가져온 override는 리셋
+    window.__userSnapOverrides = null;
+  }
+  if (typeof schedulePreview === "function") schedulePreview();
+}
+
+function applyPresetConfigToForm(cfg) {
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (!el || v === undefined || v === null) return;
+    if (el.type === "checkbox") el.checked = !!v;
+    else el.value = String(v);
+  };
+  const layout = cfg.layout || {};
+  setVal("lay-top", layout.top_h);
+  setVal("lay-vid", layout.vid_h);
+  setVal("lay-bot", layout.bot_h);
+  const cap = cfg.caption || {};
+  setVal("cap-area", cap.area);
+  setVal("cap-size", cap.size);
+  setVal("cap-font", cap.font_id || "");
+  setVal("cap-color", cap.color_hex);
+  setVal("cap-stroke", cap.stroke_w);
+  const ttl = cfg.title || {};
+  setVal("ttl-size", ttl.size);
+  setVal("ttl-font", ttl.font_id || "");
+  setVal("ttl-color", ttl.color_hex);
+  setVal("ttl-accent", ttl.accent_last_line);
+  setVal("ttl-accent-color", ttl.accent_color_hex);
+  setVal("brand-text", cfg.fixed_bottom_text || "");
+  const br = cfg.bottom_brand || {};
+  setVal("brand-size", br.size);
+  // 라벨 업데이트
+  ["v-top","v-vid","v-bot","v-cap-size","v-cap-stroke","v-ttl-size","v-brand-size"].forEach(() => {});
+  // 각 슬라이더의 input 이벤트 트리거 → 라벨 갱신
+  ["lay-top","lay-vid","lay-bot","cap-size","cap-stroke","ttl-size","brand-size"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function renderPresetCards(recommended = []) {
+  const grid = document.getElementById("preset-grid");
+  if (!grid) return;
+  // 내 프리셋 불러와서 맨 뒤에 추가
+  let myPresets = [];
+  try { myPresets = JSON.parse(localStorage.getItem(MY_PRESETS_KEY) || "[]"); } catch {}
+
+  const recSet = new Set(recommended);
+  const items = _allPresets.map(p => ({ ...p, recommended: recSet.has(p.id) }));
+  // 추천 프리셋 상단으로
+  items.sort((a, b) => (b.recommended - a.recommended));
+  // 내 프리셋 카드 추가 (카드에 source=user 표시)
+  const myCards = myPresets.map(mp => ({
+    id: `user:${mp.id}`,
+    name: "💾 " + (mp.name || mp.id),
+    description: "내 저장 프리셋",
+    thumbnail_url: "",
+    recommended: false,
+    user: true, _saved: mp,
+  }));
+
+  const currentSel = getSelectedPreset();
+  grid.innerHTML = [...items, ...myCards].map(p => {
+    const sel = p.id === currentSel ? " selected" : "";
+    const rec = p.recommended ? '<span class="badge-rec">매칭</span>' : "";
+    const delBtn = p.user ? `<button type="button" class="preset-del" data-id="${p.id}" title="삭제">✕</button>` : "";
+    const thumb = p.thumbnail_url
+      ? `<img src="${p.thumbnail_url}?t=${Date.now()}" alt="${p.name}" loading="lazy" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:4px;background:#000">`
+      : `<div style="width:100%;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;background:#222;border-radius:4px;color:#888;font-size:12px">커스텀</div>`;
+    return `
+      <div class="preset-card${sel}" data-id="${p.id}" data-user="${p.user ? 1 : 0}">
+        ${rec}${delBtn}
+        ${thumb}
+        <div class="preset-card-name">${p.name}</div>
+      </div>`;
+  }).join("");
+
+  // 클릭: 선택
+  grid.querySelectorAll(".preset-card").forEach(card => {
+    card.addEventListener("click", (e) => {
+      // 삭제 버튼 클릭은 선택 이벤트로 전파시키지 않음
+      if (e.target.classList.contains("preset-del")) return;
+      const id = card.dataset.id;
+      const isUser = card.dataset.user === "1";
+      if (isUser) {
+        const saved = myPresets.find(x => `user:${x.id}` === id);
+        if (saved) {
+          // base 테마는 폼 리셋 없이 적용 (다음 applyOverrideSnapshot이 값 주입)
+          setSelectedPreset(saved.base_theme || "viral_pill", { skipReset: true });
+          applyOverrideSnapshot(saved.snap || {});
+          return;
+        }
+      }
+      setSelectedPreset(id);
+    });
+  });
+
+  // 삭제: 내 프리셋 카드의 ✕ 버튼
+  grid.querySelectorAll(".preset-del").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const rawId = btn.dataset.id;                 // "user:<ts>"
+      const origId = rawId.replace(/^user:/, "");
+      const card = btn.closest(".preset-card");
+      const name = card?.querySelector(".preset-card-name")?.textContent || "이 프리셋";
+      if (!confirm(`'${name}' 삭제할까요?`)) return;
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem(MY_PRESETS_KEY) || "[]"); } catch {}
+      list = list.filter(mp => mp.id !== origId);
+      localStorage.setItem(MY_PRESETS_KEY, JSON.stringify(list));
+      renderPresetCards([]);
+    });
+  });
+}
+
+async function loadPresets() {
+  try {
+    const r = await fetch("/api/presets");
+    const d = await r.json();
+    _allPresets = d.presets || [];
+    // 복원: localStorage에 저장된 선택
+    const saved = localStorage.getItem(PRESET_STORAGE_KEY);
+    if (saved && _allPresets.find(p => p.id === saved)) {
+      setSelectedPreset(saved);
+    }
+    renderPresetCards([]);
+  } catch (e) {
+    console.warn("preset load fail", e);
+  }
+}
+loadPresets();
+
+// ─ 2축 필터 & 저장 버튼 바인딩 ────────────────────────────
+function bindPresetControls() {
+  const btnApplyVibe = document.getElementById("btn-apply-vibe");
+  if (btnApplyVibe) btnApplyVibe.addEventListener("click", () => {
+    const mood = document.getElementById("vibe-mood")?.value || "";
+    const tone = document.getElementById("vibe-tone")?.value || "";
+    // 클라이언트 필터링: vibe 태그 매칭 점수
+    const scored = _allPresets.map(p => {
+      let s = 0;
+      if (mood && (p.vibe_moods || []).includes(mood)) s += 3;
+      if (tone && (p.vibe_tones || []).includes(tone)) s += 2;
+      return { id: p.id, score: s };
+    }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+    const matched = scored.map(x => x.id);
+    renderPresetCards(matched);
+    if (matched[0]) setSelectedPreset(matched[0]);
+  });
+
+  const btnSave = document.getElementById("btn-save-preset");
+  if (btnSave) btnSave.addEventListener("click", () => {
+    const name = prompt("내 프리셋 이름:", "MY 프리셋");
+    if (!name) return;
+    const snap = (typeof collectThemeOverrides === "function") ? collectThemeOverrides() : null;
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(MY_PRESETS_KEY) || "[]"); } catch {}
+    list.push({
+      id: `${Date.now()}`, name,
+      base_theme: getSelectedPreset(),
+      snap,
+      created_at: new Date().toISOString(),
+    });
+    localStorage.setItem(MY_PRESETS_KEY, JSON.stringify(list));
+    renderPresetCards([]);
+    alert(`'${name}' 저장 완료.`);
+  });
+}
+
+function _rgbaArrayToHex(arr) {
+  if (!arr || arr.length < 3) return "#ffffff";
+  return "#" + arr.slice(0, 3).map(n => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, "0")).join("");
+}
+
+function applyOverrideSnapshot(snap) {
+  // 저장된 theme_overrides 형식을 UI 폼에 주입
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (!el || v === undefined || v === null) return;
+    if (el.type === "checkbox") el.checked = !!v;
+    else el.value = String(v);
+  };
+  const lo = snap.layout || {};
+  setVal("lay-top", lo.top_h); setVal("lay-vid", lo.vid_h); setVal("lay-bot", lo.bot_h);
+  const cap = snap.caption || {};
+  setVal("cap-area", cap.area); setVal("cap-size", cap.size); setVal("cap-font", cap.font_id || "");
+  if (cap.color) setVal("cap-color", _rgbaArrayToHex(cap.color));
+  setVal("cap-stroke", cap.stroke_w);
+  const ttl = snap.title || {};
+  setVal("ttl-size", ttl.size); setVal("ttl-font", ttl.font_id || "");
+  if (ttl.color) setVal("ttl-color", _rgbaArrayToHex(ttl.color));
+  setVal("ttl-accent", ttl.accent_last_line);
+  if (ttl.accent_color) setVal("ttl-accent-color", _rgbaArrayToHex(ttl.accent_color));
+  setVal("brand-text", snap.fixed_bottom_text);
+  const br = snap.bottom_brand || {};
+  setVal("brand-size", br.size);
+  ["lay-top","lay-vid","lay-bot","cap-size","cap-stroke","ttl-size","brand-size"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  window.__userSnapOverrides = null;
+  if (typeof schedulePreview === "function") schedulePreview();
+}
+
+bindPresetControls();
 
 // --- 상태 ---
 let currentJobId = null;
 let ws = null;
-let currentTab = "youtube";
+let currentTab = "news";
 let currentFormat = "mp4";
 
 // --- DOM ---
@@ -41,25 +267,6 @@ document.querySelectorAll(".source-tab").forEach((btn) => {
     document.getElementById("tab-blog").classList.toggle("hidden", currentTab !== "blog");
     document.getElementById("tab-news").classList.toggle("hidden", currentTab !== "news");
 
-    // 뉴스 탭은 항상 CapCut 출력이므로 포맷 섹션 숨김
-    document.getElementById("format-section").style.display = currentTab === "news" ? "none" : "";
-
-    updateOptionVisibility();
-  });
-});
-
-// --- 출력 포맷 탭 전환 ---
-const formatDescs = {
-  mp4:    "영상을 바로 편집·렌더링해 MP4로 저장합니다.",
-  capcut: "AI가 전체 영상을 분석해 숏츠 기획안을 만들고, CapCut에서 바로 열 수 있는 프로젝트 파일을 생성합니다.",
-};
-
-document.querySelectorAll(".format-tab").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    currentFormat = btn.dataset.format;
-    document.querySelectorAll(".format-tab").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById("format-desc").textContent = formatDescs[currentFormat];
     updateOptionVisibility();
   });
 });
@@ -67,9 +274,6 @@ document.querySelectorAll(".format-tab").forEach((btn) => {
 function updateOptionVisibility() {
   document.querySelectorAll(".youtube-only").forEach(el => {
     el.style.display = currentTab === "youtube" ? "" : "none";
-  });
-  document.querySelectorAll(".mp4-only").forEach(el => {
-    el.style.display = currentFormat === "mp4" ? "" : "none";
   });
 }
 
@@ -85,16 +289,14 @@ form.addEventListener("submit", async (e) => {
     make_thumbnail: document.getElementById("make_thumbnail").checked,
   };
 
-  body.output_format = currentTab === "news" ? "capcut" : currentFormat;
+  body.output_format = "mp4";
 
   if (currentTab === "youtube") {
     const url = document.getElementById("url").value.trim();
     if (!url) { alert("YouTube URL을 입력하세요."); return; }
     body.url = url;
-    if (currentFormat === "mp4") {
-      body.vertical     = document.getElementById("vertical").checked;
-      body.caption_mode = document.getElementById("caption_mode").value;
-    }
+    body.vertical     = document.getElementById("vertical").checked;
+    body.caption_mode = document.getElementById("caption_mode").value;
   } else if (currentTab === "news") {
     const newsUrl  = document.getElementById("news_url").value.trim();
     const newsText = document.getElementById("news_text").value.trim();
@@ -104,6 +306,25 @@ form.addEventListener("submit", async (e) => {
     body.news_title = document.getElementById("news_title").value.trim();
     const themeSel  = document.getElementById("theme_id");
     if (themeSel) body.theme_id = themeSel.value;
+    const tts = document.getElementById("enable_tts");
+    const bgm = document.getElementById("enable_bgm");
+    const tr  = document.getElementById("enable_transitions");
+    const tk  = document.getElementById("enable_ticker");
+    const tp  = document.getElementById("tts_provider");
+    const tv  = document.getElementById("tts_voice");
+    if (tts) body.enable_tts = tts.checked;
+    if (bgm) body.enable_bgm = bgm.checked;
+    if (tr)  body.enable_transitions = tr.checked;
+    if (tk)  body.enable_ticker = tk.checked;
+    const hs = document.getElementById("enable_highlight_stat");
+    if (hs) body.enable_highlight_stat = hs.checked;
+    if (tp)  body.tts_provider = tp.value;
+    if (tv)  body.tts_voice = tv.value;
+    // 커스터마이징 오버라이드 (저장된 내 프리셋 snap이 있으면 우선 적용)
+    const ov = collectThemeOverrides();
+    const userSnap = window.__userSnapOverrides;
+    body.theme_overrides = userSnap ? { ...ov, ...userSnap } : ov;
+    body.theme_id = getSelectedPreset();
   } else {
     const blogUrl  = document.getElementById("blog_url").value.trim();
     const blogText = document.getElementById("blog_text").value.trim();
@@ -200,31 +421,6 @@ function renderClips(clips, jobId) {
 
   clips.forEach((clip) => {
     const card = document.createElement("div");
-
-    // CapCut 프로젝트 결과 (video_url 없음)
-    if (!clip.video_url) {
-      card.className = "capcut-card";
-      const tags = clip.hashtags.map(t => `<span class="clip-tag">${t}</span>`).join("");
-      const folderName = clip.output_path.split("/").pop().split("\\").pop();
-      const planUrl = `/output/capcut/${folderName}/plan.txt`;
-
-      card.innerHTML = `
-        <div class="capcut-header">✂️ CapCut 프로젝트 생성 완료</div>
-        <div class="capcut-title">${clip.hook}</div>
-        <div class="clip-tags" style="margin:10px 0">${tags}</div>
-        <div class="capcut-path">📁 ${clip.output_path}</div>
-        <div class="capcut-actions">
-          <a class="clip-download" href="${planUrl}" target="_blank">기획서 보기</a>
-        </div>
-        <div class="capcut-guide">
-          CapCut PC → <b>초안 폴더</b>에 위 폴더를 복사하면 프로젝트가 나타납니다.
-        </div>
-      `;
-      clipsGrid.appendChild(card);
-      return;
-    }
-
-    // MP4 결과
     card.className = "clip-card";
     const duration = (clip.end - clip.start).toFixed(0);
     const tags = clip.hashtags.map(t => `<span class="clip-tag">${t}</span>`).join("");
@@ -364,5 +560,194 @@ async function publishClip(jobId, clipIndex, platforms) {
 }
 
 // 페이지 로드 시 히스토리 + 계정 상태
+updateOptionVisibility();
 loadHistory();
 loadAccountStatus();
+
+// ─────────────────────────────────────────────────────────────
+// 자막/레이아웃 커스터마이징 패널 로직
+// ─────────────────────────────────────────────────────────────
+
+const CUSTOMIZE_STORAGE_KEY = "shortform_theme_customize_v1";
+
+// 16진 → [r,g,b,255]
+function hexToRgba(hex) {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16), 255];
+}
+
+// 폼 → theme_overrides 객체
+function collectThemeOverrides() {
+  const $ = id => document.getElementById(id);
+  if (!$("cap-area")) return null;  // 패널 미로드
+  const top_h = Number($("lay-top").value);
+  const vid_h = Number($("lay-vid").value);
+  const bot_h = Number($("lay-bot").value);
+  return {
+    layout: { top_h, vid_h, bot_h },
+    title: {
+      size: Number($("ttl-size").value),
+      font_id: $("ttl-font").value || undefined,
+      color: hexToRgba($("ttl-color").value),
+      accent_last_line: $("ttl-accent").checked,
+      accent_color: hexToRgba($("ttl-accent-color").value),
+    },
+    caption: {
+      area: $("cap-area").value,
+      size: Number($("cap-size").value),
+      font_id: $("cap-font").value || undefined,
+      color: hexToRgba($("cap-color").value),
+      stroke_w: Number($("cap-stroke").value),
+    },
+    fixed_bottom_text: $("brand-text").value,
+    bottom_brand: {
+      size: Number($("brand-size").value),
+    },
+  };
+}
+
+// 상태 → 로컬스토리지 저장
+function saveCustomize() {
+  const snap = {};
+  [
+    "lay-top","lay-vid","lay-bot",
+    "cap-area","cap-size","cap-font","cap-color","cap-stroke",
+    "ttl-size","ttl-font","ttl-color","ttl-accent","ttl-accent-color",
+    "brand-text","brand-size",
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    snap[id] = el.type === "checkbox" ? el.checked : el.value;
+  });
+  localStorage.setItem(CUSTOMIZE_STORAGE_KEY, JSON.stringify(snap));
+}
+
+// 로컬스토리지 → 상태 복원
+function loadCustomize() {
+  try {
+    const snap = JSON.parse(localStorage.getItem(CUSTOMIZE_STORAGE_KEY) || "{}");
+    Object.entries(snap).forEach(([id, v]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === "checkbox") el.checked = v;
+      else el.value = v;
+    });
+  } catch {}
+}
+
+// 슬라이더 값 라이브 라벨 업데이트
+function bindLabel(inputId, labelId) {
+  const i = document.getElementById(inputId), l = document.getElementById(labelId);
+  if (!i || !l) return;
+  const update = () => { l.textContent = i.value; };
+  i.addEventListener("input", update); update();
+}
+
+// 프리뷰 디바운스 호출
+let previewTimer = null;
+async function schedulePreview() {
+  const st  = document.getElementById("customize-status");
+  const st2 = document.getElementById("customize-status-mirror");
+  const setStatus = (t) => { if (st) st.textContent = t; if (st2) st2.textContent = t; };
+  setStatus("갱신 중...");
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(async () => {
+    try {
+      const theme_id = document.getElementById("theme_id").value;
+      const body = { theme_id, theme_overrides: collectThemeOverrides() };
+      const res = await fetch("/api/preview-layout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        let detail = "";
+        try { detail = (await res.text()).slice(0, 200); } catch {}
+        throw new Error("preview " + res.status + " " + detail);
+      }
+      const blob = await res.blob();
+      const img = document.getElementById("layout-preview");
+      if (img) img.src = URL.createObjectURL(blob);
+      setStatus("");
+    } catch (e) {
+      setStatus("미리보기 실패: " + e.message);
+    }
+    saveCustomize();
+  }, 300);
+}
+
+// 레이아웃 슬라이더: 합=1920 유지
+function enforceLayoutSum(changedId) {
+  const top = document.getElementById("lay-top");
+  const vid = document.getElementById("lay-vid");
+  const bot = document.getElementById("lay-bot");
+  if (!top || !vid || !bot) return;
+  const H = 1920;
+  const sum = Number(top.value) + Number(vid.value) + Number(bot.value);
+  if (sum === H) return;
+  // 바뀌지 않은 두 슬라이더에서 차이 분배
+  const diff = H - sum;
+  const others = ["lay-top","lay-vid","lay-bot"].filter(x => x !== changedId);
+  for (const id of others) {
+    const el = document.getElementById(id);
+    const nv = Math.max(0, Number(el.value) + Math.round(diff / others.length));
+    el.value = String(nv);
+  }
+  bindLabel("lay-top","v-top"); bindLabel("lay-vid","v-vid"); bindLabel("lay-bot","v-bot");
+}
+
+// 초기화
+async function initCustomize() {
+  if (!document.getElementById("cap-area")) return;
+  // 폰트 목록
+  try {
+    const res = await fetch("/api/fonts");
+    const data = await res.json();
+    const opts = (data.fonts || []).map(f => `<option value="${f.id}">${f.name}</option>`).join("");
+    const cap = document.getElementById("cap-font");
+    const ttl = document.getElementById("ttl-font");
+    if (cap) cap.innerHTML = `<option value="">(테마 기본)</option>` + opts;
+    if (ttl) ttl.innerHTML = `<option value="">(테마 기본)</option>` + opts;
+  } catch {}
+
+  loadCustomize();
+
+  // 모든 컨트롤 change → 프리뷰
+  [
+    "lay-top","lay-vid","lay-bot",
+    "cap-area","cap-size","cap-font","cap-color","cap-stroke",
+    "ttl-size","ttl-font","ttl-color","ttl-accent","ttl-accent-color",
+    "brand-text","brand-size",
+    "theme_id",
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const ev = (el.type === "range" || el.type === "color" || el.tagName === "SELECT" || el.type === "checkbox")
+      ? "input" : "change";
+    el.addEventListener(ev, () => {
+      if (id.startsWith("lay-")) enforceLayoutSum(id);
+      schedulePreview();
+    });
+  });
+
+  // 슬라이더 라벨
+  bindLabel("lay-top","v-top"); bindLabel("lay-vid","v-vid"); bindLabel("lay-bot","v-bot");
+  bindLabel("cap-size","v-cap-size"); bindLabel("cap-stroke","v-cap-stroke");
+  bindLabel("ttl-size","v-ttl-size"); bindLabel("brand-size","v-brand-size");
+
+  // 리셋 버튼
+  const reset = document.getElementById("reset-customize");
+  if (reset) reset.addEventListener("click", () => {
+    localStorage.removeItem(CUSTOMIZE_STORAGE_KEY);
+    location.reload();
+  });
+
+  // 패널 열릴 때 첫 프리뷰
+  const panel = document.querySelector(".customize-panel");
+  if (panel) panel.addEventListener("toggle", () => { if (panel.open) schedulePreview(); });
+
+  // 최초 1회 미리보기
+  schedulePreview();
+}
+
+initCustomize();
