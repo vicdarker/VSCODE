@@ -1,0 +1,27 @@
+.git
+.gitignore
+.dockerignore
+README.md
+*.md
+
+# 런타임 산출물 (이미지에 포함 안 함)
+temp/
+output/
+static/previews/
+
+# 환경 / 가상환경 / 캐시
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# 테스트 스크립트
+test_full.py
+
+# IDE / OS
+.claude/
+.vscode/
+.idea/
+.DS_Store

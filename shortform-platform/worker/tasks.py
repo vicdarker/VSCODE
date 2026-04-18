@@ -135,7 +135,6 @@ def _run_news_pipeline(job_id, req, duration, style):
     from src.selector.news_script_generator import generate_news_script
     from src.searcher.media_searcher import fetch_media, UsedMediaSet
     from src.editor.news_direct_renderer import render_news_shorts
-    from src.editor.news_themes import get_theme
 
     news_text  = req.get("news_text", "")
     news_url   = req.get("news_url", "")
@@ -255,11 +254,9 @@ def _run_news_pipeline(job_id, req, duration, style):
     _progress(job_id, JobStatus.EDITING, 88, f"MP4 렌더링 중 (테마: {theme_id})...")
     print(f"[pipeline] theme_id={theme_id} overrides={req.get('theme_overrides')}")
 
-    theme_obj = get_theme(theme_id)
-
-    def _render_pil(tid: str):
+    try:
         render_news_shorts(
-            news_script=script, output_path=mp4_path, theme_id=tid,
+            news_script=script, output_path=mp4_path, theme_id=theme_id,
             ticker_text=ticker_text,
             enable_transitions=enable_transitions,
             enable_tts=enable_tts,
@@ -268,31 +265,9 @@ def _run_news_pipeline(job_id, req, duration, style):
             tts_voice=tts_voice,
             theme_overrides=req.get("theme_overrides"),
         )
-
-    if theme_obj.get("engine") == "remotion":
-        try:
-            from src.editor.news_remotion_renderer import render_news_shorts_remotion
-            remotion_theme = theme_obj.get("remotion_theme_id", "samprotv")
-            render_news_shorts_remotion(
-                news_script=script, output_path=mp4_path,
-                theme_id=remotion_theme,
-                enable_tts=enable_tts,
-                enable_bgm=enable_bgm,
-                tts_provider=tts_provider,
-                tts_voice=tts_voice,
-            )
-        except Exception as e:
-            fallback_id = theme_obj.get("remotion_theme_id", "viral_pill")
-            print(f"  Remotion 렌더 실패 ({e}) → PIL 테마 '{fallback_id}'로 fallback")
-            _progress(job_id, JobStatus.EDITING, 90,
-                      f"Remotion 실패 — PIL 테마({fallback_id})로 대체 렌더 중...")
-            _render_pil(fallback_id)
-    else:
-        try:
-            _render_pil(theme_id)
-        except Exception as e:
-            print(f"  MP4 렌더링 실패: {e}")
-            raise
+    except Exception as e:
+        print(f"  MP4 렌더링 실패: {e}")
+        raise
 
     from dataclasses import dataclass
 
