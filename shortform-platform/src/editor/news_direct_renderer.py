@@ -38,6 +38,7 @@ CTA_TYPE_COLORS = {
     "follow": (255, 140, 0),    # 주황 (팔로우 버튼 느낌)
     "save":   (80, 160, 255),   # 파랑 (북마크 느낌)
     "share":  (255, 80, 140),   # 핑크 (공유 느낌)
+    "engage": (255, 215, 0),    # 골드 (댓글 유도 — 강조)
 }
 
 # 감정 타깃 → 자막 톤 보정 (R,G,B 가중치)
@@ -387,6 +388,8 @@ def _make_segment_overlay(
         font = _load_font(cfg["font"], cfg["size"])
         lines = _wrap_lines(_strip_emoji(caption_chunk), font, int(W * cfg["max_width"]), draw)
         a_top, a_h = _compute_area(theme, cfg["area"])
+        y_off = int(cfg.get("y_offset", 0) or 0)
+        a_top += y_off
         if cfg["area"] == "video_bottom_pill":
             _draw_pill_caption(
                 draw, lines, font, a_top, a_h, W,

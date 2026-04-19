@@ -11,32 +11,21 @@ export type ThemeConfig = {
   emphasisColor: string;
 };
 
-export const THEMES: Record<string, ThemeConfig> = {
-  samprotv: {
-    topH: 630,
-    vidH: 810,
-    botH: 480,
-    titleColor: '#FFFFFF',
-    titleSize: 96,
-    captionColor: '#FFF000',
-    captionStrokeColor: '#000000',
-    captionStrokeW: 5,
-    captionSize: 64,
-    emphasisColor: '#FFE600',
-  },
-  youtuber: {
-    topH: 290,
-    vidH: 1320,
-    botH: 310,
-    titleColor: '#FFFFFF',
-    titleSize: 72,
-    captionColor: '#DC1E1E',
-    captionStrokeColor: '#FFFFFF',
-    captionStrokeW: 8,
-    captionSize: 72,
-    emphasisColor: '#FFE600',
-  },
+// 단일 기본 테마 — 사용자 overrides로 모든 속성 치환 가능
+export const DEFAULT_THEME: ThemeConfig = {
+  topH: 290,
+  vidH: 1280,
+  botH: 350,
+  titleColor: '#FFFFFF',
+  titleSize: 92,
+  captionColor: '#FFF000',
+  captionStrokeColor: '#000000',
+  captionStrokeW: 8,
+  captionSize: 72,
+  emphasisColor: '#FFE600',
 };
+
+export const THEMES = {default: DEFAULT_THEME};
 
 export const ROLE_ACCENT: Record<string, string> = {
   hook: '#FF5050',

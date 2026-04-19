@@ -1,0 +1,41 @@
+# Build context exclusions — Docker 빌드 속도 + Windows 심볼릭 링크 에러 방지
+__pycache__/
+*.pyc
+*.pyo
+
+# Git
+.git/
+.gitignore
+
+# Node modules (컨테이너 안에서 npm install)
+remotion/node_modules/
+node_modules/
+
+# Remotion 빌드/프리뷰 산출물
+remotion/output/
+remotion/public/
+remotion/dist-preview/
+
+# 런타임 생성물
+output/
+temp/
+temp_uploads/
+
+# 개발 환경
+.env
+.env.local
+.vscode/
+.idea/
+.claude/
+
+# Python
+.venv/
+venv/
+*.egg-info/
+
+# 로그
+*.log
+logs/
+
+# 테스트 산출물
+test_*.mp4

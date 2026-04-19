@@ -34,5 +34,11 @@ openai>=1.0.0
 # 그래픽 생성 (뉴스 숏츠 배경)
 Pillow>=10.0.0
 
+# Smart crop — 얼굴 기반 중심 크롭 (Haar cascade)
+opencv-python-headless>=4.9.0
+
 # Google Gemini API (TTS + 멀티모달)
 google-genai>=1.0.0
+
+# Test
+pytest>=8.0.0

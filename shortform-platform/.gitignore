@@ -13,3 +13,13 @@ remotion/output/
 
 # 프리셋 썸네일 (API 기동 시 자동 재생성)
 static/previews/
+
+# SQLite 런타임 DB (잡 히스토리·미디어 캐시 — 머신마다 다름)
+data/
+*.db
+
+# TypeScript 증분 빌드 캐시
+*.tsbuildinfo
+
+# pytest
+.pytest_cache/

@@ -5,239 +5,6 @@
 
 const API = "";  // 같은 origin
 
-// ─ 프리셋 카드 그리드 ────────────────────────────────────────────
-const PRESET_STORAGE_KEY  = "shortform_selected_preset_v1";
-const MY_PRESETS_KEY      = "shortform_my_presets_v1";
-let  _allPresets          = [];   // [{id,name,description,vibe_moods,vibe_tones,thumbnail_url}, ...]
-
-function getSelectedPreset() {
-  return document.getElementById("theme_id")?.value || "viral_pill";
-}
-
-async function setSelectedPreset(id, opts = {}) {
-  const th = document.getElementById("theme_id");
-  if (th) th.value = id;
-  localStorage.setItem(PRESET_STORAGE_KEY, id);
-  document.querySelectorAll(".preset-card").forEach(c => {
-    c.classList.toggle("selected", c.dataset.id === id);
-  });
-  // 프리셋 기본값을 UI 슬라이더에 주입 (커스터마이징 리셋)
-  // opts.skipReset=true면 스킵 (예: 내 프리셋 snap 적용할 때)
-  if (!opts.skipReset) {
-    try {
-      const r = await fetch(`/api/presets/${encodeURIComponent(id)}/config`);
-      if (r.ok) {
-        const cfg = await r.json();
-        applyPresetConfigToForm(cfg);
-      }
-    } catch (e) { console.warn("preset config load fail", e); }
-    // 내 프리셋에서 가져온 override는 리셋
-    window.__userSnapOverrides = null;
-  }
-  if (typeof schedulePreview === "function") schedulePreview();
-}
-
-function applyPresetConfigToForm(cfg) {
-  const setVal = (id, v) => {
-    const el = document.getElementById(id);
-    if (!el || v === undefined || v === null) return;
-    if (el.type === "checkbox") el.checked = !!v;
-    else el.value = String(v);
-  };
-  const layout = cfg.layout || {};
-  setVal("lay-top", layout.top_h);
-  setVal("lay-vid", layout.vid_h);
-  setVal("lay-bot", layout.bot_h);
-  const cap = cfg.caption || {};
-  setVal("cap-area", cap.area);
-  setVal("cap-size", cap.size);
-  setVal("cap-font", cap.font_id || "");
-  setVal("cap-color", cap.color_hex);
-  setVal("cap-stroke", cap.stroke_w);
-  const ttl = cfg.title || {};
-  setVal("ttl-size", ttl.size);
-  setVal("ttl-font", ttl.font_id || "");
-  setVal("ttl-color", ttl.color_hex);
-  setVal("ttl-accent", ttl.accent_last_line);
-  setVal("ttl-accent-color", ttl.accent_color_hex);
-  setVal("brand-text", cfg.fixed_bottom_text || "");
-  const br = cfg.bottom_brand || {};
-  setVal("brand-size", br.size);
-  // 라벨 업데이트
-  ["v-top","v-vid","v-bot","v-cap-size","v-cap-stroke","v-ttl-size","v-brand-size"].forEach(() => {});
-  // 각 슬라이더의 input 이벤트 트리거 → 라벨 갱신
-  ["lay-top","lay-vid","lay-bot","cap-size","cap-stroke","ttl-size","brand-size"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-}
-
-function renderPresetCards(recommended = []) {
-  const grid = document.getElementById("preset-grid");
-  if (!grid) return;
-  // 내 프리셋 불러와서 맨 뒤에 추가
-  let myPresets = [];
-  try { myPresets = JSON.parse(localStorage.getItem(MY_PRESETS_KEY) || "[]"); } catch {}
-
-  const recSet = new Set(recommended);
-  const items = _allPresets.map(p => ({ ...p, recommended: recSet.has(p.id) }));
-  // 추천 프리셋 상단으로
-  items.sort((a, b) => (b.recommended - a.recommended));
-  // 내 프리셋 카드 추가 (카드에 source=user 표시)
-  const myCards = myPresets.map(mp => ({
-    id: `user:${mp.id}`,
-    name: "💾 " + (mp.name || mp.id),
-    description: "내 저장 프리셋",
-    thumbnail_url: "",
-    recommended: false,
-    user: true, _saved: mp,
-  }));
-
-  const currentSel = getSelectedPreset();
-  grid.innerHTML = [...items, ...myCards].map(p => {
-    const sel = p.id === currentSel ? " selected" : "";
-    const rec = p.recommended ? '<span class="badge-rec">매칭</span>' : "";
-    const delBtn = p.user ? `<button type="button" class="preset-del" data-id="${p.id}" title="삭제">✕</button>` : "";
-    const thumb = p.thumbnail_url
-      ? `<img src="${p.thumbnail_url}?t=${Date.now()}" alt="${p.name}" loading="lazy" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:4px;background:#000">`
-      : `<div style="width:100%;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;background:#222;border-radius:4px;color:#888;font-size:12px">커스텀</div>`;
-    return `
-      <div class="preset-card${sel}" data-id="${p.id}" data-user="${p.user ? 1 : 0}">
-        ${rec}${delBtn}
-        ${thumb}
-        <div class="preset-card-name">${p.name}</div>
-      </div>`;
-  }).join("");
-
-  // 클릭: 선택
-  grid.querySelectorAll(".preset-card").forEach(card => {
-    card.addEventListener("click", (e) => {
-      // 삭제 버튼 클릭은 선택 이벤트로 전파시키지 않음
-      if (e.target.classList.contains("preset-del")) return;
-      const id = card.dataset.id;
-      const isUser = card.dataset.user === "1";
-      if (isUser) {
-        const saved = myPresets.find(x => `user:${x.id}` === id);
-        if (saved) {
-          // base 테마는 폼 리셋 없이 적용 (다음 applyOverrideSnapshot이 값 주입)
-          setSelectedPreset(saved.base_theme || "viral_pill", { skipReset: true });
-          applyOverrideSnapshot(saved.snap || {});
-          return;
-        }
-      }
-      setSelectedPreset(id);
-    });
-  });
-
-  // 삭제: 내 프리셋 카드의 ✕ 버튼
-  grid.querySelectorAll(".preset-del").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const rawId = btn.dataset.id;                 // "user:<ts>"
-      const origId = rawId.replace(/^user:/, "");
-      const card = btn.closest(".preset-card");
-      const name = card?.querySelector(".preset-card-name")?.textContent || "이 프리셋";
-      if (!confirm(`'${name}' 삭제할까요?`)) return;
-      let list = [];
-      try { list = JSON.parse(localStorage.getItem(MY_PRESETS_KEY) || "[]"); } catch {}
-      list = list.filter(mp => mp.id !== origId);
-      localStorage.setItem(MY_PRESETS_KEY, JSON.stringify(list));
-      renderPresetCards([]);
-    });
-  });
-}
-
-async function loadPresets() {
-  try {
-    const r = await fetch("/api/presets");
-    const d = await r.json();
-    _allPresets = d.presets || [];
-    // 복원: localStorage에 저장된 선택
-    const saved = localStorage.getItem(PRESET_STORAGE_KEY);
-    if (saved && _allPresets.find(p => p.id === saved)) {
-      setSelectedPreset(saved);
-    }
-    renderPresetCards([]);
-  } catch (e) {
-    console.warn("preset load fail", e);
-  }
-}
-loadPresets();
-
-// ─ 2축 필터 & 저장 버튼 바인딩 ────────────────────────────
-function bindPresetControls() {
-  const btnApplyVibe = document.getElementById("btn-apply-vibe");
-  if (btnApplyVibe) btnApplyVibe.addEventListener("click", () => {
-    const mood = document.getElementById("vibe-mood")?.value || "";
-    const tone = document.getElementById("vibe-tone")?.value || "";
-    // 클라이언트 필터링: vibe 태그 매칭 점수
-    const scored = _allPresets.map(p => {
-      let s = 0;
-      if (mood && (p.vibe_moods || []).includes(mood)) s += 3;
-      if (tone && (p.vibe_tones || []).includes(tone)) s += 2;
-      return { id: p.id, score: s };
-    }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
-    const matched = scored.map(x => x.id);
-    renderPresetCards(matched);
-    if (matched[0]) setSelectedPreset(matched[0]);
-  });
-
-  const btnSave = document.getElementById("btn-save-preset");
-  if (btnSave) btnSave.addEventListener("click", () => {
-    const name = prompt("내 프리셋 이름:", "MY 프리셋");
-    if (!name) return;
-    const snap = (typeof collectThemeOverrides === "function") ? collectThemeOverrides() : null;
-    let list = [];
-    try { list = JSON.parse(localStorage.getItem(MY_PRESETS_KEY) || "[]"); } catch {}
-    list.push({
-      id: `${Date.now()}`, name,
-      base_theme: getSelectedPreset(),
-      snap,
-      created_at: new Date().toISOString(),
-    });
-    localStorage.setItem(MY_PRESETS_KEY, JSON.stringify(list));
-    renderPresetCards([]);
-    alert(`'${name}' 저장 완료.`);
-  });
-}
-
-function _rgbaArrayToHex(arr) {
-  if (!arr || arr.length < 3) return "#ffffff";
-  return "#" + arr.slice(0, 3).map(n => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, "0")).join("");
-}
-
-function applyOverrideSnapshot(snap) {
-  // 저장된 theme_overrides 형식을 UI 폼에 주입
-  const setVal = (id, v) => {
-    const el = document.getElementById(id);
-    if (!el || v === undefined || v === null) return;
-    if (el.type === "checkbox") el.checked = !!v;
-    else el.value = String(v);
-  };
-  const lo = snap.layout || {};
-  setVal("lay-top", lo.top_h); setVal("lay-vid", lo.vid_h); setVal("lay-bot", lo.bot_h);
-  const cap = snap.caption || {};
-  setVal("cap-area", cap.area); setVal("cap-size", cap.size); setVal("cap-font", cap.font_id || "");
-  if (cap.color) setVal("cap-color", _rgbaArrayToHex(cap.color));
-  setVal("cap-stroke", cap.stroke_w);
-  const ttl = snap.title || {};
-  setVal("ttl-size", ttl.size); setVal("ttl-font", ttl.font_id || "");
-  if (ttl.color) setVal("ttl-color", _rgbaArrayToHex(ttl.color));
-  setVal("ttl-accent", ttl.accent_last_line);
-  if (ttl.accent_color) setVal("ttl-accent-color", _rgbaArrayToHex(ttl.accent_color));
-  setVal("brand-text", snap.fixed_bottom_text);
-  const br = snap.bottom_brand || {};
-  setVal("brand-size", br.size);
-  ["lay-top","lay-vid","lay-bot","cap-size","cap-stroke","ttl-size","brand-size"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  window.__userSnapOverrides = null;
-  if (typeof schedulePreview === "function") schedulePreview();
-}
-
-bindPresetControls();
-
 // --- 상태 ---
 let currentJobId = null;
 let ws = null;
@@ -277,6 +44,41 @@ function updateOptionVisibility() {
   });
 }
 
+// --- 🧪 빠른 테스트 버튼: 샘플 뉴스 + 10초·1클립 + 모든 기능 ON → 폼 제출 ---
+const QUICK_TEST_SAMPLE = {
+  title: "강남 집값 4주 연속 폭락",
+  text: `[속보] 서울 강남구 아파트 가격이 4주 연속 폭락했습니다.
+지난달 평균 12억원이던 아파트 실거래가는 12억 → 10.5억 → 9.2억
+→ 8.3억 → 8억원 순으로 주저앉았습니다. 총 하락폭 33%,
+2008년 금융위기 이후 최대 낙폭입니다. 강남 부동산 시장이
+사실상 붕괴 단계에 들어섰다는 평가가 나옵니다.`,
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("btn-quick-test");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    // 뉴스 탭 강제 활성화
+    const newsTabBtn = document.querySelector('.source-tab[data-tab="news"]');
+    if (newsTabBtn) newsTabBtn.click();
+    // 샘플 채우기 (URL은 비움)
+    const $ = id => document.getElementById(id);
+    if ($("news_url"))   $("news_url").value = "";
+    if ($("news_text"))  $("news_text").value = QUICK_TEST_SAMPLE.text;
+    if ($("news_title")) $("news_title").value = QUICK_TEST_SAMPLE.title;
+    // 길이·클립 수
+    if ($("duration")) $("duration").value = "10";
+    if ($("clips"))    $("clips").value = "1";
+    // 렌더 옵션: Remotion + TTS + BGM + 수치팝업 모두 ON
+    ["enable_tts","enable_bgm","enable_transitions","enable_highlight_stat","enable_remotion","enable_ai_image"].forEach(id => {
+      const el = $(id);
+      if (el) el.checked = true;
+    });
+    // 폼 제출
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+  });
+});
+
 // --- 폼 제출 ---
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -304,8 +106,6 @@ form.addEventListener("submit", async (e) => {
     body.news_url   = newsUrl;
     body.news_text  = newsText;
     body.news_title = document.getElementById("news_title").value.trim();
-    const themeSel  = document.getElementById("theme_id");
-    if (themeSel) body.theme_id = themeSel.value;
     const tts = document.getElementById("enable_tts");
     const bgm = document.getElementById("enable_bgm");
     const tr  = document.getElementById("enable_transitions");
@@ -318,13 +118,13 @@ form.addEventListener("submit", async (e) => {
     if (tk)  body.enable_ticker = tk.checked;
     const hs = document.getElementById("enable_highlight_stat");
     if (hs) body.enable_highlight_stat = hs.checked;
+    const rem = document.getElementById("enable_remotion");
+    if (rem) body.enable_remotion = rem.checked;
+    const aii = document.getElementById("enable_ai_image");
+    if (aii) body.enable_ai_image = aii.checked;
     if (tp)  body.tts_provider = tp.value;
     if (tv)  body.tts_voice = tv.value;
-    // 커스터마이징 오버라이드 (저장된 내 프리셋 snap이 있으면 우선 적용)
-    const ov = collectThemeOverrides();
-    const userSnap = window.__userSnapOverrides;
-    body.theme_overrides = userSnap ? { ...ov, ...userSnap } : ov;
-    body.theme_id = getSelectedPreset();
+    body.theme_overrides = collectThemeOverrides();
   } else {
     const blogUrl  = document.getElementById("blog_url").value.trim();
     const blogText = document.getElementById("blog_text").value.trim();
@@ -598,6 +398,8 @@ function collectThemeOverrides() {
       font_id: $("cap-font").value || undefined,
       color: hexToRgba($("cap-color").value),
       stroke_w: Number($("cap-stroke").value),
+      stroke_color: hexToRgba(($("cap-stroke-color") && $("cap-stroke-color").value) || "#000000"),
+      y_offset: Number(($("cap-yoff") && $("cap-yoff").value) || 0),
     },
     fixed_bottom_text: $("brand-text").value,
     bottom_brand: {
@@ -611,7 +413,7 @@ function saveCustomize() {
   const snap = {};
   [
     "lay-top","lay-vid","lay-bot",
-    "cap-area","cap-size","cap-font","cap-color","cap-stroke",
+    "cap-area","cap-size","cap-font","cap-color","cap-stroke","cap-stroke-color","cap-yoff",
     "ttl-size","ttl-font","ttl-color","ttl-accent","ttl-accent-color",
     "brand-text","brand-size",
   ].forEach(id => {
@@ -635,6 +437,100 @@ function loadCustomize() {
   } catch {}
 }
 
+// ─ 저장된 레이아웃 (이름별) ────────────────────────────
+const SAVED_LAYOUTS_KEY = "shortform_saved_layouts_v1";
+
+function getSavedLayouts() {
+  try { return JSON.parse(localStorage.getItem(SAVED_LAYOUTS_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function setSavedLayouts(list) {
+  localStorage.setItem(SAVED_LAYOUTS_KEY, JSON.stringify(list));
+}
+
+function renderSavedLayouts() {
+  const ul = document.getElementById("saved-layouts");
+  if (!ul) return;
+  const list = getSavedLayouts();
+  if (!list.length) {
+    ul.innerHTML = `<li style="color:#777;padding:6px 0">저장된 레이아웃이 없습니다. 이름을 입력하고 💾 저장을 누르세요.</li>`;
+    return;
+  }
+  ul.innerHTML = list.map((it, i) => `
+    <li style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #222">
+      <span style="flex:1;color:#ddd">${_escape(it.name)}</span>
+      <span style="color:#666;font-size:11px">${it.created_at?.slice(0,10) || ""}</span>
+      <button type="button" class="inline-btn" data-action="apply" data-idx="${i}">적용</button>
+      <button type="button" class="inline-btn" data-action="delete" data-idx="${i}" style="color:#e66">✕</button>
+    </li>
+  `).join("");
+  ul.querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => {
+      const idx = Number(b.dataset.idx);
+      const action = b.dataset.action;
+      const all = getSavedLayouts();
+      const it = all[idx];
+      if (!it) return;
+      if (action === "apply") applySavedLayout(it);
+      else if (action === "delete") {
+        if (!confirm(`'${it.name}' 삭제할까요?`)) return;
+        all.splice(idx, 1);
+        setSavedLayouts(all);
+        renderSavedLayouts();
+      }
+    });
+  });
+}
+
+function _escape(s) {
+  return String(s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function applySavedLayout(item) {
+  const snap = item.snap || {};
+  Object.entries(snap).forEach(([id, v]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.type === "checkbox") el.checked = !!v;
+    else el.value = v;
+  });
+  ["lay-top","lay-vid","lay-bot","cap-size","cap-stroke","cap-yoff","ttl-size","brand-size"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  if (typeof schedulePreview === "function") schedulePreview();
+}
+
+function bindLayoutSaveControls() {
+  const btn = document.getElementById("btn-save-layout");
+  const nameEl = document.getElementById("layout-save-name");
+  if (!btn || !nameEl) return;
+  btn.addEventListener("click", () => {
+    const name = (nameEl.value || "").trim();
+    if (!name) { nameEl.focus(); return; }
+    const snap = {};
+    [
+      "lay-top","lay-vid","lay-bot",
+      "cap-area","cap-size","cap-font","cap-color","cap-stroke","cap-stroke-color","cap-yoff",
+      "ttl-size","ttl-font","ttl-color","ttl-accent","ttl-accent-color",
+      "brand-text","brand-size",
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      snap[id] = el.type === "checkbox" ? el.checked : el.value;
+    });
+    const list = getSavedLayouts();
+    // 같은 이름이면 덮어쓰기
+    const existing = list.findIndex(x => x.name === name);
+    const entry = { name, snap, created_at: new Date().toISOString() };
+    if (existing >= 0) list[existing] = entry; else list.push(entry);
+    setSavedLayouts(list);
+    nameEl.value = "";
+    renderSavedLayouts();
+  });
+}
+
 // 슬라이더 값 라이브 라벨 업데이트
 function bindLabel(inputId, labelId) {
   const i = document.getElementById(inputId), l = document.getElementById(labelId);
@@ -653,8 +549,7 @@ async function schedulePreview() {
   clearTimeout(previewTimer);
   previewTimer = setTimeout(async () => {
     try {
-      const theme_id = document.getElementById("theme_id").value;
-      const body = { theme_id, theme_overrides: collectThemeOverrides() };
+      const body = { theme_overrides: collectThemeOverrides() };
       const res = await fetch("/api/preview-layout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -668,7 +563,7 @@ async function schedulePreview() {
       const blob = await res.blob();
       const img = document.getElementById("layout-preview");
       if (img) img.src = URL.createObjectURL(blob);
-      setStatus("");
+      setStatus("저장됨 ✓");
     } catch (e) {
       setStatus("미리보기 실패: " + e.message);
     }
@@ -715,10 +610,9 @@ async function initCustomize() {
   // 모든 컨트롤 change → 프리뷰
   [
     "lay-top","lay-vid","lay-bot",
-    "cap-area","cap-size","cap-font","cap-color","cap-stroke",
+    "cap-area","cap-size","cap-font","cap-color","cap-stroke","cap-stroke-color","cap-yoff",
     "ttl-size","ttl-font","ttl-color","ttl-accent","ttl-accent-color",
     "brand-text","brand-size",
-    "theme_id",
   ].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -733,6 +627,7 @@ async function initCustomize() {
   // 슬라이더 라벨
   bindLabel("lay-top","v-top"); bindLabel("lay-vid","v-vid"); bindLabel("lay-bot","v-bot");
   bindLabel("cap-size","v-cap-size"); bindLabel("cap-stroke","v-cap-stroke");
+  bindLabel("cap-yoff","v-cap-yoff");
   bindLabel("ttl-size","v-ttl-size"); bindLabel("brand-size","v-brand-size");
 
   // 리셋 버튼
@@ -745,6 +640,10 @@ async function initCustomize() {
   // 패널 열릴 때 첫 프리뷰
   const panel = document.querySelector(".customize-panel");
   if (panel) panel.addEventListener("toggle", () => { if (panel.open) schedulePreview(); });
+
+  // 저장된 레이아웃 리스트 & 저장 버튼
+  bindLayoutSaveControls();
+  renderSavedLayouts();
 
   // 최초 1회 미리보기
   schedulePreview();

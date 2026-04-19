@@ -147,20 +147,27 @@ def _tts_openai(text: str, out_path: str, voice: str = "nova") -> str | None:
 
 
 def generate_tts_for_segments(segments, work_dir: Path, provider: str = "edge",
-                               edge_voice: str = "ko-KR-SunHiNeural") -> list[str | None]:
-    """각 세그먼트 caption을 TTS로 병렬 생성. 실패한 세그먼트는 None.
+                               edge_voice: str = "ko-KR-SunHiNeural",
+                               progress_cb=None,
+                               max_concurrency: int = 5) -> list[str | None]:
+    """각 세그먼트 caption을 TTS로 병렬 생성.
 
-    이미 `_tts_file`이 있는 세그먼트는 재사용 (worker에서 사전 생성 시 활용).
+    - 이미 `_tts_file`이 있는 세그먼트는 재사용
+    - progress_cb(done:int, total:int): 세그먼트 1개 완료할 때마다 호출 (UX용)
+    - max_concurrency: edge-tts는 너무 많은 동시 연결 시 rate limit → 5 권장
     """
     # 사전 생성된 TTS 재사용
     if all(getattr(s, "_tts_file", None) for s in segments):
         return [s._tts_file for s in segments]
-    # edge-tts는 asyncio 네이티브 → async batch
     if provider == "edge":
-        return _generate_tts_edge_batch(segments, work_dir, edge_voice)
+        return _generate_tts_edge_batch(segments, work_dir, edge_voice,
+                                        progress_cb=progress_cb,
+                                        max_concurrency=max_concurrency)
     # Gemini/OpenAI는 ThreadPoolExecutor (동기 SDK)
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     results = [None] * len(segments)
+    total = len(segments)
+    done = 0
 
     def _one(idx_seg):
         idx, seg = idx_seg
@@ -170,44 +177,63 @@ def generate_tts_for_segments(segments, work_dir: Path, provider: str = "edge",
         out = str(work_dir / f"tts_{idx:02d}.mp3")
         return idx, tts_korean(text, out, provider=provider, edge_voice=edge_voice)
 
-    with ThreadPoolExecutor(max_workers=5) as ex:
-        for idx, r in ex.map(_one, enumerate(segments)):
+    with ThreadPoolExecutor(max_workers=max_concurrency) as ex:
+        futures = [ex.submit(_one, (i, s)) for i, s in enumerate(segments)]
+        for f in as_completed(futures):
+            idx, r = f.result()
             results[idx] = r
+            done += 1
+            if progress_cb:
+                try: progress_cb(done, total)
+                except Exception: pass
     return results
 
 
-def _generate_tts_edge_batch(segments, work_dir: Path, voice: str) -> list[str | None]:
-    """Edge TTS 병렬 생성 (asyncio) + 단어별 타임스탬프 json 저장."""
+def _generate_tts_edge_batch(segments, work_dir: Path, voice: str,
+                             progress_cb=None, max_concurrency: int = 5) -> list[str | None]:
+    """Edge TTS 병렬 생성 (asyncio + Semaphore) + 단어별 타임스탬프 json 저장."""
     import asyncio
     import edge_tts
     import json as _json
 
+    sem = asyncio.Semaphore(max_concurrency)
+    total = len(segments)
+    done_counter = {"n": 0}
+
     async def _one(idx, seg):
-        text = (seg.caption or "").strip()
-        if not text:
-            return idx, None
-        out_mp3 = str(work_dir / f"tts_{idx:02d}.mp3")
-        out_json = str(work_dir / f"tts_{idx:02d}_words.json")
-        try:
-            communicate = edge_tts.Communicate(text, voice, rate="+20%")
-            words = []  # [{text, offset_ms, duration_ms}]
-            with open(out_mp3, "wb") as f:
-                async for chunk in communicate.stream():
-                    if chunk["type"] == "audio":
-                        f.write(chunk["data"])
-                    elif chunk["type"] == "WordBoundary":
-                        words.append({
-                            "text": chunk["text"],
-                            "offset_ms": chunk["offset"] / 10000,  # 100ns → ms
-                            "duration_ms": chunk["duration"] / 10000,
-                        })
-            if os.path.exists(out_mp3) and os.path.getsize(out_mp3) > 500:
-                with open(out_json, "w", encoding="utf-8") as f:
-                    _json.dump(words, f, ensure_ascii=False)
-                return idx, out_mp3
-        except Exception as e:
-            print(f"  [TTS {idx}] 실패: {e}")
-        return idx, None
+        async with sem:
+            text = (seg.caption or "").strip()
+            if not text:
+                return idx, None
+            out_mp3 = str(work_dir / f"tts_{idx:02d}.mp3")
+            out_json = str(work_dir / f"tts_{idx:02d}_words.json")
+            try:
+                communicate = edge_tts.Communicate(text, voice, rate="+20%")
+                words = []
+                with open(out_mp3, "wb") as f:
+                    async for chunk in communicate.stream():
+                        if chunk["type"] == "audio":
+                            f.write(chunk["data"])
+                        elif chunk["type"] == "WordBoundary":
+                            words.append({
+                                "text": chunk["text"],
+                                "offset_ms": chunk["offset"] / 10000,
+                                "duration_ms": chunk["duration"] / 10000,
+                            })
+                if os.path.exists(out_mp3) and os.path.getsize(out_mp3) > 500:
+                    with open(out_json, "w", encoding="utf-8") as f:
+                        _json.dump(words, f, ensure_ascii=False)
+                    result = (idx, out_mp3)
+                else:
+                    result = (idx, None)
+            except Exception as e:
+                print(f"  [TTS {idx}] 실패: {e}")
+                result = (idx, None)
+            done_counter["n"] += 1
+            if progress_cb:
+                try: progress_cb(done_counter["n"], total)
+                except Exception: pass
+            return result
 
     async def _all():
         return await asyncio.gather(*[_one(i, s) for i, s in enumerate(segments)])

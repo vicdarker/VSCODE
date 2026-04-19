@@ -11,11 +11,11 @@
     <h1>숏폼 자동 생성</h1>
     <p class="subtitle">YouTube 영상 또는 블로그 글을 AI가 자동으로 숏폼으로 만들어줍니다.</p>
 
-    <!-- 소스 타입 탭 -->
+    <!-- 소스 타입 탭 (현재 뉴스만 운영 — 다른 탭은 숨김) -->
     <div class="source-tabs">
       <button class="source-tab active" data-tab="news">📰 뉴스 숏츠</button>
-      <button class="source-tab" data-tab="youtube">📺 YouTube</button>
-      <button class="source-tab" data-tab="blog">📝 블로그</button>
+      <button class="source-tab" data-tab="youtube" style="display:none">📺 YouTube</button>
+      <button class="source-tab" data-tab="blog" style="display:none">📝 블로그</button>
     </div>
 
     <!-- 입력 폼 -->
@@ -50,7 +50,10 @@
 
             <!-- ① 뉴스 원문 -->
             <section class="step-card">
-              <h4 class="step-title">① 뉴스 원문</h4>
+              <div class="step-header">
+                <h4 class="step-title" style="margin:0">① 뉴스 원문</h4>
+                <button type="button" id="btn-quick-test" class="inline-btn" title="샘플 뉴스·10초·1클립으로 모든 기능 바로 테스트" style="display:none">🧪 빠른 테스트</button>
+              </div>
               <div class="form-group">
                 <label>뉴스 URL</label>
                 <input type="url" id="news_url" placeholder="https://news.example.com/article/..." />
@@ -65,46 +68,9 @@
               </div>
             </section>
 
-            <!-- ② 프리셋 선택 -->
-            <section class="step-card">
-              <div class="step-header">
-                <h4 class="step-title" style="margin:0">② 프리셋 선택</h4>
-                <button type="button" id="btn-save-preset" class="inline-btn">💾 현재 설정을 내 프리셋으로</button>
-              </div>
-              <div id="preset-grid"
-                   style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;max-height:380px;overflow-y:auto;padding:6px;background:#0f0f14;border:1px solid #2a2a32;border-radius:8px;margin-top:8px"></div>
-              <input type="hidden" id="theme_id" value="viral_pill" />
-              <div class="vibe-quickbar">
-                <span class="vibe-label">빠른 조정</span>
-                <label>분위기
-                  <select id="vibe-mood">
-                    <option value="">—</option>
-                    <option value="shock">충격</option>
-                    <option value="mourning">추모·슬픔</option>
-                    <option value="economy">경제</option>
-                    <option value="celebrity">연예·셀럽</option>
-                    <option value="social">사회·정치</option>
-                    <option value="positive">긍정</option>
-                    <option value="neutral">중립</option>
-                  </select>
-                </label>
-                <label>톤
-                  <select id="vibe-tone">
-                    <option value="">—</option>
-                    <option value="formal">정통</option>
-                    <option value="casual">캐주얼</option>
-                    <option value="bold">굵직</option>
-                    <option value="dramatic">극적</option>
-                    <option value="minimal">미니멀</option>
-                  </select>
-                </label>
-                <button type="button" id="btn-apply-vibe" class="inline-btn">적용</button>
-              </div>
-            </section>
-
-            <!-- ③ 미세 조정 (접힘) -->
-            <details class="step-card customize-panel">
-              <summary class="step-title step-summary">③ 미세 조정 <span class="step-hint">(선택)</span></summary>
+            <!-- ② 미세 조정 (접힘) -->
+            <details class="step-card customize-panel" open>
+              <summary class="step-title step-summary">② 미세 조정 <span class="step-hint">(자동 저장)</span></summary>
               <div class="customize-body-single" style="margin-top:12px">
                 <fieldset class="cus-fieldset">
                   <legend>레이아웃 비율 (합=1920)</legend>
@@ -137,6 +103,14 @@
                       <input type="color" id="cap-color" value="#fff000" style="height:38px;width:100%"></div>
                     <div class="form-group"><label>외곽선 <span id="v-cap-stroke">8</span>px</label>
                       <input type="range" id="cap-stroke" min="0" max="16" value="8"></div>
+                    <div class="form-group"><label>외곽선 색</label>
+                      <input type="color" id="cap-stroke-color" value="#000000" style="height:38px;width:100%"></div>
+                  </div>
+                  <div class="form-row" style="margin-top:8px">
+                    <div class="form-group" style="flex:2">
+                      <label>Y 오프셋 <span id="v-cap-yoff">0</span>px <span style="color:#888;font-weight:400">(음수=위로 / 양수=아래로)</span></label>
+                      <input type="range" id="cap-yoff" min="-400" max="400" step="5" value="0">
+                    </div>
                   </div>
                 </fieldset>
 
@@ -167,22 +141,36 @@
                   </div>
                 </fieldset>
 
-                <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+                <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
                   <button type="button" id="reset-customize" class="inline-btn">기본값으로</button>
+                  <input type="text" id="layout-save-name" placeholder="레이아웃 이름" style="flex:1;min-width:120px;height:32px;padding:0 10px;background:#1a1a20;border:1px solid #333;border-radius:4px;color:#eee;font-size:13px">
+                  <button type="button" id="btn-save-layout" class="inline-btn">💾 저장</button>
                   <span id="customize-status" style="color:#888;font-size:12px"></span>
                 </div>
+
+                <!-- 저장된 레이아웃 리스트 -->
+                <fieldset class="cus-fieldset" style="margin-top:10px">
+                  <legend>저장된 레이아웃</legend>
+                  <ul id="saved-layouts" style="list-style:none;padding:0;margin:0;font-size:13px"></ul>
+                </fieldset>
               </div>
             </details>
 
-            <!-- ④ 렌더 옵션 -->
+            <!-- ③ 렌더 옵션 -->
             <section class="step-card">
-              <h4 class="step-title">④ 렌더 옵션</h4>
+              <h4 class="step-title">③ 렌더 옵션</h4>
               <div class="opt-checks">
                 <label><input type="checkbox" id="enable_tts" checked /> TTS 내레이션</label>
                 <label><input type="checkbox" id="enable_bgm" checked /> BGM</label>
                 <label><input type="checkbox" id="enable_transitions" checked /> 크로스페이드</label>
                 <label><input type="checkbox" id="enable_ticker" /> 하단 티커</label>
                 <label><input type="checkbox" id="enable_highlight_stat" /> 수치 팝업</label>
+                <label title="카운터 롤업·차트 애니메이션·속보 배너·지도 마커 등 (렌더 시간 1~3분)">
+                  <input type="checkbox" id="enable_remotion" /> ✨ Remotion 애니메이션
+                </label>
+                <label title="스톡 매칭 안 되는 장면을 DALL-E 3로 생성 (장당 약 $0.04, OPENAI_API_KEY 필요)">
+                  <input type="checkbox" id="enable_ai_image" /> 🎨 AI 이미지 생성 (DALL-E 3, 유료)
+                </label>
               </div>
               <div class="form-row" style="margin-top:10px">
                 <div class="form-group">
@@ -313,6 +301,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=12"></script>
+  <script src="/static/js/app.js?v=23"></script>
 </body>
 </html>

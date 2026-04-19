@@ -5,6 +5,9 @@ import {
 } from 'remotion';
 import {SegmentData} from './types';
 import {ThemeConfig, ROLE_ACCENT} from './theme';
+import {CounterRollup} from './anims/CounterRollup';
+import {LineChart} from './anims/LineChart';
+import {resolveFontFamily} from './fonts';
 
 const isVideo = (path: string) => path.toLowerCase().endsWith('.mp4') || path.endsWith('.webm');
 
@@ -15,7 +18,12 @@ export const Segment: React.FC<{
   height: number;
   durationFrames: number;
   fps: number;
-}> = ({seg, theme, width, height, durationFrames, fps}) => {
+  captionYOffset?: number;
+  captionSize?: number;
+  captionArea?: string;
+  captionFontId?: string;
+}> = ({seg, theme, width, height, durationFrames, fps,
+       captionYOffset, captionSize, captionArea, captionFontId}) => {
   const frame = useCurrentFrame();
 
   // Ken Burns - 아주 미세한 줌인 (무한 정적 이미지 방지)
@@ -37,18 +45,20 @@ export const Segment: React.FC<{
           transform: `scale(${zoom})`,
           transformOrigin: 'center center',
         }}>
-          {isVideo(seg.mediaPath) ? (
-            <OffthreadVideo
-              src={staticFile(seg.mediaPath)}
-              style={{width: '100%', height: '100%', objectFit: 'cover'}}
-              muted
-            />
-          ) : (
-            <Img
-              src={staticFile(seg.mediaPath)}
-              style={{width: '100%', height: '100%', objectFit: 'cover'}}
-            />
-          )}
+          {(() => {
+            const objectPosX = (seg.videoObjectPosX ?? 0.5) * 100;
+            const commonStyle: React.CSSProperties = {
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: `${objectPosX}% 50%`,
+            };
+            return isVideo(seg.mediaPath) ? (
+              <OffthreadVideo src={staticFile(seg.mediaPath)} style={commonStyle} muted />
+            ) : (
+              <Img src={staticFile(seg.mediaPath)} style={commonStyle} />
+            );
+          })()}
         </div>
       </div>
 
@@ -63,20 +73,79 @@ export const Segment: React.FC<{
       }} />
 
       {/* 캡션 청크 — 시간대별로 순차 등장 */}
-      <CaptionChunks seg={seg} theme={theme} durationFrames={durationFrames} fps={fps} />
+      <CaptionChunks
+        seg={seg} theme={theme} durationFrames={durationFrames} fps={fps}
+        width={width}
+        yOffset={captionYOffset}
+        sizeOverride={captionSize}
+        areaOverride={captionArea}
+        fontId={captionFontId}
+      />
 
-      {/* 수치 팝업 */}
+      {/* 수치 팝업 — 숫자면 0→N 롤업 카운터 (나레이션 중후반에 카운팅) */}
       {seg.highlightStat && (
-        <StatPopup
+        <CounterRollup
           stat={seg.highlightStat}
-          theme={theme}
-          roleColor={ROLE_ACCENT[seg.role] || '#FFFFFF'}
+          fps={fps}
+          color={ROLE_ACCENT[seg.role] || '#FFFFFF'}
+          startFrame={Math.round(durationFrames * 0.20)}
+          rollupFrames={Math.max(Math.round(fps * 0.8), Math.round(durationFrames * 0.45))}
+          holdFrames={Math.round(durationFrames * 0.25)}
+          style={{
+            position: 'absolute',
+            top: theme.topH + theme.vidH * 0.18,
+            left: 0,
+            width: '100%',
+            textAlign: 'center',
+            fontSize: 180,
+            padding: '0 40px',
+            zIndex: 30,
+          }}
         />
+      )}
+
+      {/* 차트 (chartValues 있을 때 영상 상단 우측) — 나레이션 중후반에 그려짐 */}
+      {seg.chartValues && seg.chartValues.length >= 2 && (
+        <div style={{
+          position: 'absolute',
+          top: theme.topH + 40,
+          right: 40,
+          zIndex: 25,
+        }}>
+          <LineChart
+            values={seg.chartValues}
+            width={380}
+            height={220}
+            color={ROLE_ACCENT[seg.role] || '#ffcc00'}
+            startFrame={Math.round(durationFrames * 0.15)}
+            drawFrames={Math.max(Math.round(fps * 1.0), Math.round(durationFrames * 0.55))}
+          />
+        </div>
       )}
 
       {/* 이모지 리액션 (climax/twist) */}
       {seg.reactionEmoji && (
         <EmojiReaction emoji={seg.reactionEmoji} theme={theme} durationFrames={durationFrames} fps={fps} />
+      )}
+
+      {/* 출처 크레딧 (저작권 안전 채널 영상용) */}
+      {seg.sourceCredit && (
+        <div style={{
+          position: 'absolute',
+          right: 20,
+          top: theme.topH + theme.vidH - 50,
+          background: 'rgba(0,0,0,0.55)',
+          color: '#FFFFFF',
+          padding: '4px 12px',
+          borderRadius: 6,
+          fontSize: 22,
+          fontFamily: 'sans-serif',
+          fontWeight: 600,
+          zIndex: 40,
+          letterSpacing: 0.3,
+        }}>
+          {seg.sourceCredit}
+        </div>
       )}
     </AbsoluteFill>
   );
@@ -87,16 +156,43 @@ const CaptionChunks: React.FC<{
   theme: ThemeConfig;
   durationFrames: number;
   fps: number;
-}> = ({seg, theme, durationFrames, fps}) => {
+  width: number;
+  yOffset?: number;
+  sizeOverride?: number;
+  areaOverride?: string;
+  fontId?: string;
+}> = ({seg, theme, durationFrames, fps, width, yOffset, sizeOverride, areaOverride, fontId}) => {
   const frame = useCurrentFrame();
   const chunks = seg.captionChunks && seg.captionChunks.length > 0
     ? seg.captionChunks
-    : [seg.caption];
-  const chunkFrames = durationFrames / chunks.length;
-  const activeIdx = Math.min(chunks.length - 1, Math.floor(frame / chunkFrames));
-  const localFrame = frame - activeIdx * chunkFrames;
+    : [seg.caption || ''];
 
-  // 슬라이드 업 + 페이드인 (처음 10프레임)
+  const fontSize = sizeOverride || theme.captionSize;
+  const fontFamily = resolveFontFamily(fontId);
+
+  // Python 측에서 이미 한 줄씩 쪼개고 chunkTimings를 정확히 부여한 상태 —
+  // 여기선 현재 프레임에 해당하는 청크만 골라 표시.
+  const totalDurSec = durationFrames / fps;
+  const hasTimings = seg.chunkTimings && seg.chunkTimings.length === chunks.length;
+  const curSec = frame / fps;
+  let activeIdx = 0;
+  let chunkStart = 0;
+  if (hasTimings) {
+    for (let i = 0; i < seg.chunkTimings!.length; i++) {
+      if (curSec >= seg.chunkTimings![i][0]) {
+        activeIdx = i;
+        chunkStart = seg.chunkTimings![i][0];
+      }
+    }
+  } else {
+    const perChunk = totalDurSec / chunks.length;
+    activeIdx = Math.min(chunks.length - 1, Math.floor(curSec / perChunk));
+    chunkStart = activeIdx * perChunk;
+  }
+  const chunkStartFrame = Math.round(chunkStart * fps);
+  const localFrame = frame - chunkStartFrame;
+
+  // 슬라이드 업 + 페이드인 (청크 시작 시점부터)
   const enter = spring({frame: localFrame, fps, config: {damping: 15, stiffness: 140}});
   const translateY = interpolate(enter, [0, 1], [30, 0]);
   const opacity = interpolate(enter, [0, 1], [0, 1]);
@@ -108,13 +204,29 @@ const CaptionChunks: React.FC<{
   // 단어별 색칠
   const tokens = text.split(/(\s+)/);
 
+  // area별 기본 위치 계산 (PIL renderer와 동일한 개념)
+  const area = areaOverride || 'bottom';
+  let boxTop: number;
+  let boxHeight: number;
+  if (area === 'video_bottom_overlay') {
+    boxHeight = Math.round(theme.vidH * 0.30);
+    boxTop = theme.topH + theme.vidH - boxHeight - 40;
+  } else if (area === 'video_bottom_pill') {
+    boxHeight = Math.round(theme.vidH * 0.25);
+    boxTop = theme.topH + theme.vidH - boxHeight - 50;
+  } else {
+    boxTop = theme.topH + theme.vidH;
+    boxHeight = theme.botH;
+  }
+  boxTop += (yOffset || 0);
+
   return (
     <div style={{
       position: 'absolute',
-      top: theme.topH + theme.vidH,
+      top: boxTop,
       left: 0,
       width: '100%',
-      height: theme.botH,
+      height: boxHeight,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -124,19 +236,22 @@ const CaptionChunks: React.FC<{
       transform: `translateY(${translateY}px)`,
     }}>
       <div style={{
-        fontFamily: '"Noto Sans CJK KR", sans-serif',
+        fontFamily,
         fontWeight: 900,
-        fontSize: theme.captionSize,
+        fontSize,
         lineHeight: 1.2,
         color: theme.captionColor,
         WebkitTextStroke: `${theme.captionStrokeW}px ${theme.captionStrokeColor}`,
         paintOrder: 'stroke fill',
-        // 최대 2줄 제한 (초과 시 말줄임표)
+        // 자연스러운 wrap + 최대 2줄 제한 (Python이 이미 2줄 분량으로 쪼개줌)
+        whiteSpace: 'normal',
+        wordBreak: 'keep-all',   // 한글: 단어 중간 줄바꿈 방지
+        overflowWrap: 'break-word',
         display: '-webkit-box',
         WebkitLineClamp: 2,
         WebkitBoxOrient: 'vertical',
         overflow: 'hidden',
-        textOverflow: 'ellipsis',
+        maxWidth: '100%',
       }}>
         {tokens.map((tk, i) => (
           <span key={i} style={{color: isEmphasized(tk) ? theme.emphasisColor : theme.captionColor}}>

@@ -4,7 +4,6 @@ import {NewsProps} from './types';
 
 const DEFAULT_PROPS: NewsProps = {
   hookPhrase: '이란 한 마디에\n월가가 폭발했다',
-  theme: 'samprotv',
   fps: 30,
   segments: [
     {
