@@ -108,7 +108,8 @@
       "Bash(curl -sw 'HTTP %{http_code}\\\\n' -X DELETE http://127.0.0.1:8765/api/jobs/3ec2cbe1-f63a-4170-9002-0ed8160b8164)",
       "Bash(curl -sw 'HTTP %{http_code}\\\\n' http://127.0.0.1:8765/api/jobs/3ec2cbe1-f63a-4170-9002-0ed8160b8164)",
       "Bash(powershell -Command 'Get-Process python | Where-Object {$_.CommandLine -like '\\\\''*8765*'\\\\'' -or $_.MainWindowTitle -like '\\\\''*uvicorn*'\\\\''} | Stop-Process -Force')",
-      "Bash(PYTHONIOENCODING=utf-8 python -m pytest tests/test_thumbnail_text.py -x --tb=short)"
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest tests/test_thumbnail_text.py -x --tb=short)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\vicmy\\Desktop",
